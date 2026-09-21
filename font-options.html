@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>首页 Hero 字体方案对比</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;900&family=Noto+Sans+SC:wght@400;700;900&family=ZCOOL+KuaiLe&family=ZCOOL+XiaoWei&family=ZCOOL+QingKe+HuangYou&family=Ma+Shan+Zheng&family=Long+Cang&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#faf8f4;--warm:#f3eee5;--ink:#23211c;--sub:#8a8579;--line:#e3ddd1;--accent:#b4632e}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--bg);color:var(--ink);padding:40px 22px 90px}
+  .wrap{max-width:980px;margin:0 auto}
+  h1.page{font-size:22px;margin:0 0 4px;letter-spacing:-.4px}
+  .note{color:var(--sub);font-size:13px;margin:0 0 8px}
+  .hint{background:var(--warm);border:1px solid var(--line);border-radius:12px;
+    padding:12px 16px;font-size:13px;color:#4a463d;margin:14px 0 30px}
+  .hint b{color:var(--accent)}
+  .opt{background:#fff;border:1px solid var(--line);border-radius:16px;
+    padding:26px 28px;margin-bottom:18px;position:relative}
+  .tag{position:absolute;top:16px;right:18px;font-size:12px;color:#fff;background:var(--accent);
+    border-radius:20px;padding:3px 12px;font-weight:600}
+  .name{font-size:13px;color:var(--sub);margin-bottom:10px;letter-spacing:.3px}
+  .name b{color:var(--ink);font-size:14px}
+  .sample{font-size:clamp(34px,6vw,64px);line-height:1.06;margin:0}
+  .sample .sub{font-weight:400;opacity:.82;font-size:.62em;display:block;margin-top:6px}
+  .desc{margin:14px 0 0;font-size:12.5px;color:var(--sub);line-height:1.5}
+  /* typeface assignments */
+  .t-serif{font-family:'Noto Serif SC','Songti SC',SimSun,serif;font-weight:600;letter-spacing:-1px}
+  .t-black{font-family:'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;font-weight:900;letter-spacing:-2px}
+  .t-butter{font-family:'ZCOOL QingKe HuangYou','Microsoft YaHei',sans-serif;letter-spacing:0}
+  .t-happy{font-family:'ZCOOL KuaiLe','Microsoft YaHei',sans-serif;letter-spacing:0}
+  .t-xiaowei{font-family:'ZCOOL XiaoWei','Noto Serif SC',serif;letter-spacing:1px}
+  .t-brush{font-family:'Ma Shan Zheng','KaiTi','STKaiti',cursive;font-weight:400;letter-spacing:2px}
+  .t-running{font-family:'Long Cang','KaiTi',cursive;font-weight:400;letter-spacing:3px}
+  footer{margin-top:34px;text-align:center;color:var(--sub);font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="page">首页 Hero 字体方案对比</h1>
+  <p class="note">同一段标题「翁彥斌 / 工业设计作品集」的 7 种字体处理，挑一个编号告诉我即可。</p>
+  <div class="hint">
+    <b>怎么选：</b> 看下面哪种风格最贴合你的作品集调性（高级编辑感 / 现代科技 / 年轻活泼 / 艺术手写）。
+    选定后我把它应用到首页区块2，并同步调整字重与字间距。这些字体走 Google Fonts（需联网加载，离线时自动回退到系统字体）。
+  </div>
+
+  <div class="opt">
+    <span class="tag">方案 1</span>
+    <div class="name"><b>思源宋体 · 典雅衬线</b>　Noto Serif SC</div>
+    <p class="sample t-serif">翁彥斌<span class="sub">工业设计作品集</span></p>
+    <p class="desc">衬线宋体，气质克制、有书卷气与高级编辑感，适合"设计思考型"作品集。第二行用细体形成主次。</p>
+  </div>
+
+  <div class="opt">
+    <span class="tag">方案 2</span>
+    <div class="name"><b>思源黑体 · 厚重无衬线</b>　Noto Sans SC 900</div>
+    <p class="sample t-black">翁彥斌<span class="sub">工业设计作品集</span></p>
+    <p class="desc">极粗黑体，现代、硬朗、产品/科技感强，视觉冲击大。当前默认风格偏此路线，可在此基础上加重。</p>
+  </div>
+
+  <div class="opt">
+    <span class="tag">方案 3</span>
+    <div class="name"><b>站酷庆科黄油体 · 圆润标题</b>　ZCOOL QingKe HuangYou</div>
+    <p class="sample t-butter">翁彥斌<span class="sub">工业设计作品集</span></p>
+    <p class="desc">粗圆标题体，亲和、有分量又不呆板，介于"玩具感"与"专业感"之间，记忆点强。</p>
+  </div>
+
+  <div class="opt">
+    <span class="tag">方案 4</span>
+    <div class="name"><b>站酷快乐体 · 年轻活泼</b>　ZCOOL KuaiLe</div>
+    <p class="sample t-happy">翁彥斌<span class="sub">工业设计作品集</span></p>
+    <p class="desc">圆润手写感标题，轻松、年轻、有亲和力，适合偏潮流/消费电子方向的表达。</p>
+  </div>
+
+  <div class="opt">
+    <span class="tag">方案 5</span>
+    <div class="name"><b>站酷小薇 · 纤细优雅</b>　ZCOOL XiaoWei</div>
+    <p class="sample t-xiaowei">翁彥斌<span class="sub">工业设计作品集</span></p>
+    <p class="desc">细长衬线、留白感强，文艺、克制、显贵气，适合强调"少即是多"的设计语言。</p>
+  </div>
+
+  <div class="opt">
+    <span class="tag">方案 6</span>
+    <div class="name"><b>马善政毛笔楷书 · 艺术手写</b>　Ma Shan Zheng</div>
+    <p class="sample t-brush">翁彥斌<span class="sub">工业设计作品集</span></p>
+    <p class="desc">毛笔楷书，强个人印记、艺术化，适合想突出"手作/原创"气质的封面签名感。</p>
+  </div>
+
+  <div class="opt">
+    <span class="tag">方案 7</span>
+    <div class="name"><b>龙藏体 · 行书写意</b>　Long Cang</div>
+    <p class="sample t-running">翁彥斌<span class="sub">工业设计作品集</span></p>
+    <p class="desc">行书连笔，潇洒、写意，签名式视觉，张力强但辨识度略低，适合做个性化点缀而非正文。</p>
+  </div>
+
+  <footer>字体对比页 · 选定编号后告知 WorkBuddy 即可应用到首页区块2</footer>
+</div>
+</body>
+</html>

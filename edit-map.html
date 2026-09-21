@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>作品集 · 区块地图（指哪改哪）</title>
+<style>
+  :root{
+    --bg:#faf8f4; --warm:#f3eee5; --ink:#23211c; --sub:#8a8579;
+    --line:#e3ddd1; --accent:#b4632e; --chip:#fff; --chip-line:#e3ddd1;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.6;padding:40px 24px 80px}
+  .wrap{max-width:1100px;margin:0 auto}
+  header{margin-bottom:32px}
+  h1{font-size:26px;margin:0 0 6px;letter-spacing:-.5px}
+  .lead{color:var(--sub);font-size:14px;max-width:680px}
+  .how{background:var(--warm);border:1px solid var(--line);border-radius:12px;
+    padding:14px 18px;margin:18px 0 36px;font-size:13.5px;color:#4a463d}
+  .how b{color:var(--accent)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:22px}
+  .card{background:var(--chip);border:1px solid var(--chip-line);border-radius:14px;
+    padding:18px 18px 14px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+  .card h2{font-size:16px;margin:0 0 2px}
+  .card .file{font-size:11.5px;color:var(--sub);margin-bottom:12px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .card a.open{font-size:11.5px;color:var(--accent);text-decoration:none;
+    border:1px solid var(--line);padding:2px 8px;border-radius:20px;float:right}
+  .card a.open:hover{background:var(--warm)}
+  ol{list-style:none;margin:0;padding:0;counter-reset:b}
+  ol li{counter-increment:b;display:flex;align-items:baseline;gap:10px;
+    padding:7px 0;border-top:1px dashed var(--line);font-size:13.5px}
+  ol li:first-child{border-top:none}
+  ol li::before{content:counter(b);flex:0 0 22px;height:22px;background:var(--accent);
+    color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;
+    font-size:11.5px;font-weight:600}
+  .bname{flex:1}
+  .ln{color:var(--sub);font-size:11px;font-family:ui-monospace,Menlo,monospace;flex:0 0 auto}
+  footer{margin-top:46px;color:var(--sub);font-size:12px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>作品集 · 区块地图</h1>
+    <p class="lead">这是一份「指哪改哪」的索引。每个页面被拆成带编号的区块，你只需告诉我是<b>哪一页 · 哪个编号</b>，我就能精准定位、不再改错地方。</p>
+  </header>
+
+  <div class="how">
+    <b>怎么用：</b> 在右侧预览里看到想改的地方 → 回到这张地图找到对应的页面 → 报「<b>页名 + 区块编号</b>」即可。
+    例：「<b>越野车玩具 · 区块3</b>」= 该页「问题定义：太玩具/太模型」；「<b>首页 · 区块2</b>」= Hero 主视觉。
+    编号后的 (行号) 是我跳转定位用的，你不用管。
+  </div>
+
+  <div class="grid">
+
+    <div class="card">
+      <a class="open" href="index.html" target="_blank">打开 ↗</a>
+      <h2>首页</h2>
+      <div class="file">index.html</div>
+      <ol>
+        <li><span class="bname">导航栏</span><span class="ln">L15</span></li>
+        <li><span class="bname">Hero 主视觉（标题区）</span><span class="ln">L39</span></li>
+        <li><span class="bname">简介段（不是展示会建模…）</span><span class="ln">L57</span></li>
+        <li><span class="bname">项目列表标题</span><span class="ln">L73</span></li>
+        <li><span class="bname">项目卡：越野车玩具（01）</span><span class="ln">L80</span></li>
+        <li><span class="bname">项目卡：智能猫窝（02）</span><span class="ln">L96</span></li>
+        <li><span class="bname">项目卡：头戴耳机（03）</span><span class="ln">L112</span></li>
+        <li><span class="bname">项目卡：模块化单反（04）</span><span class="ln">L128</span></li>
+        <li><span class="bname">项目卡：设计方法论（05）</span><span class="ln">L144</span></li>
+        <li><span class="bname">流程声明（真实渲染说明）</span><span class="ln">L163</span></li>
+        <li><span class="bname">页脚</span><span class="ln">L172</span></li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <a class="open" href="about.html" target="_blank">打开 ↗</a>
+      <h2>关于</h2>
+      <div class="file">about.html</div>
+      <ol>
+        <li><span class="bname">Hero 标语区</span><span class="ln">L36</span></li>
+        <li><span class="bname">基础信息</span><span class="ln">L59</span></li>
+        <li><span class="bname">联系方式</span><span class="ln">L81</span></li>
+        <li><span class="bname">软件熟练度</span><span class="ln">L95</span></li>
+        <li><span class="bname">成长轨迹</span><span class="ln">L127</span></li>
+        <li><span class="bname">设计信条</span><span class="ln">L154</span></li>
+        <li><span class="bname">我的优势</span><span class="ln">L160</span></li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <a class="open" href="methodology.html" target="_blank">打开 ↗</a>
+      <h2>设计方法论</h2>
+      <div class="file">methodology.html</div>
+      <ol>
+        <li><span class="bname">Hero 标题</span><span class="ln">L36</span></li>
+        <li><span class="bname">四条工作原则</span><span class="ln">L54</span></li>
+        <li><span class="bname">设计流程环</span><span class="ln">L81</span></li>
+        <li><span class="bname">工业设计信条（引言）</span><span class="ln">L119</span></li>
+        <li><span class="bname">页脚导航</span><span class="ln">L127</span></li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <a class="open" href="projects/dslr.html" target="_blank">打开 ↗</a>
+      <h2>项目 · 模块化单反相机</h2>
+      <div class="file">projects/dslr.html</div>
+      <ol>
+        <li><span class="bname">Hero 标题区</span><span class="ln">L36</span></li>
+        <li><span class="bname">引言段</span><span class="ln">L49</span></li>
+        <li><span class="bname">问题定义：三种场景难兼顾</span><span class="ln">L68</span></li>
+        <li><span class="bname">调研：反推模块需求</span><span class="ln">L90</span></li>
+        <li><span class="bname">概念：三个方向取舍</span><span class="ln">L120</span></li>
+        <li><span class="bname">迭代：素模验证比例</span><span class="ln">L156</span></li>
+        <li><span class="bname">最终方案：可换模块+防尘</span><span class="ln">L185</span></li>
+        <li><span class="bname">成果验证：8位摄影师反馈</span><span class="ln">L219</span></li>
+        <li><span class="bname">项目切换导航</span><span class="ln">L241</span></li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <a class="open" href="projects/headphones.html" target="_blank">打开 ↗</a>
+      <h2>项目 · 头戴式监听耳机</h2>
+      <div class="file">projects/headphones.html</div>
+      <ol>
+        <li><span class="bname">Hero 标题区</span><span class="ln">L36</span></li>
+        <li><span class="bname">引言段</span><span class="ln">L49</span></li>
+        <li><span class="bname">问题：长时间热/重/夹</span><span class="ln">L58</span></li>
+        <li><span class="bname">调研：头型数据与佩戴路径</span><span class="ln">L79</span></li>
+        <li><span class="bname">概念：三种佩戴结构</span><span class="ln">L108</span></li>
+        <li><span class="bname">迭代：Clay 模型看比例</span><span class="ln">L143</span></li>
+        <li><span class="bname">最终：双层悬挂磁吸耳罩</span><span class="ln">L164</span></li>
+        <li><span class="bname">验证：1小时佩戴测试</span><span class="ln">L184</span></li>
+        <li><span class="bname">项目切换导航</span><span class="ln">L204</span></li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <a class="open" href="projects/offroad-toy.html" target="_blank">打开 ↗</a>
+      <h2>项目 · 越野车玩具</h2>
+      <div class="file">projects/offroad-toy.html</div>
+      <ol>
+        <li><span class="bname">Hero 标题区</span><span class="ln">L36</span></li>
+        <li><span class="bname">引言段 + 最终渲染主图</span><span class="ln">L49</span></li>
+        <li><span class="bname">01 / Problem：太玩具/太模型</span><span class="ln">L58</span></li>
+        <li><span class="bname">02 / 3D Explorer：可交互 3D 模型</span><span class="ln">L81</span></li>
+        <li><span class="bname">03 / Research：能看能玩三标准</span><span class="ln">L105</span></li>
+        <li><span class="bname">04 / Concept：三个设计方向</span><span class="ln">L134</span></li>
+        <li><span class="bname">05 / Iteration：母本到玩具比例</span><span class="ln">L169</span></li>
+        <li><span class="bname">06 / Final：高细节可玩安全</span><span class="ln">L193</span></li>
+        <li><span class="bname">07 / Validation：儿童与家长试用</span><span class="ln">L213</span></li>
+        <li><span class="bname">项目切换导航</span><span class="ln">L233</span></li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <a class="open" href="projects/cat-nest.html" target="_blank">打开 ↗</a>
+      <h2>项目 · 智能猫窝</h2>
+      <div class="file">projects/cat-nest.html</div>
+      <ol>
+        <li><span class="bname">Hero 标题区</span><span class="ln">L36</span></li>
+        <li><span class="bname">引言段</span><span class="ln">L49</span></li>
+        <li><span class="bname">问题：气味焦虑与远程牵挂</span><span class="ln">L58</span></li>
+        <li><span class="bname">调研：猫行为到人情绪</span><span class="ln">L79</span></li>
+        <li><span class="bname">概念：三个方案姿态</span><span class="ln">L108</span></li>
+        <li><span class="bname">迭代：素模到结构验证</span><span class="ln">L143</span></li>
+        <li><span class="bname">最终：低趴可呼吸可看见</span><span class="ln">L167</span></li>
+        <li><span class="bname">验证：12位用户34条反馈</span><span class="ln">L188</span></li>
+        <li><span class="bname">项目切换导航</span><span class="ln">L208</span></li>
+      </ol>
+    </div>
+
+  </div>
+
+  <footer>区块地图由 WorkBuddy 生成 · 与 portfolio-v2 源文件同步 · Ardot 画布未连接时作为替代定位层</footer>
+</div>
+</body>
+</html>

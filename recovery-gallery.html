@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>找回的渲染图 · 翁彥斌作品集</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .recovery-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--space-6); margin-top: var(--space-7); }
+    .recovery-card { background: var(--paper); border: 1px solid var(--hairline); border-radius: var(--radius-lg); overflow: hidden; }
+    .recovery-card img { width:100%; height:220px; object-fit: cover; display:block; }
+    .recovery-card-body { padding: var(--space-5); }
+    .recovery-card h3 { font-size: var(--text-lg); margin-bottom: var(--space-2); }
+    .recovery-card p { font-size: var(--text-sm); color: var(--ink-subtle); margin-bottom: var(--space-3); }
+    .recovery-card .tag { display:inline-block; padding: 2px 10px; border-radius: 100px; background: var(--bg-warm); font-size: 12px; color: var(--ink-secondary); margin-right: var(--space-2); }
+    .recovery-note { background: var(--bg-warm); border-left: 3px solid var(--accent); padding: var(--space-5); border-radius: var(--radius-md); margin-top: var(--space-6); }
+  </style>
+</head>
+<body>
+  <nav class="nav"><div class="container nav-inner"><a href="index.html" class="nav-logo">← 返回作品集</a></div></nav>
+  <main class="section">
+    <div class="container">
+      <p class="label">Recovery Gallery</p>
+      <h1 class="heading-1">找回的「带光影渲染图」</h1>
+      <p class="body-large max-w-3xl mt-5">以下是从 WorkBuddy 自动备份（modify_backup）中找回的、q-2 修正前生成/使用的 AI 渲染图。每张图都标注了原始用途与当前状态。请挑选需要放回作品集的图，并告诉我放哪个位置。</p>
+
+      <div class="recovery-grid">
+        <div class="recovery-card">
+          <img src="assets/images/recovered/hero-truck.png" alt="硬派越野渲染">
+          <div class="recovery-card-body">
+            <h3>hero-truck.png</h3>
+            <p>原「硬派越野电动载具」项目最终主图。AI 生成，带户外峡谷光影与材质。</p>
+            <span class="tag">8-15 19:23</span><span class="tag">已找回</span>
+          </div>
+        </div>
+        <div class="recovery-card">
+          <img src="assets/images/recovered/hero-underwater.png" alt="水下清理器渲染">
+          <div class="recovery-card-body">
+            <h3>hero-underwater.png</h3>
+            <p>原「智能水下清理器」项目最终主图。该项目已删除，图片仍可备用。</p>
+            <span class="tag">8-15 19:23</span><span class="tag">项目已删</span>
+          </div>
+        </div>
+        <div class="recovery-card">
+          <img src="assets/images/recovered/scenario-truck.png" alt="越野车场景">
+          <div class="recovery-card-body">
+            <h3>scenario-truck.png</h3>
+            <p>原越野载具场景氛围图，沙漠逆光环境。</p>
+            <span class="tag">8-15 19:29</span><span class="tag">已找回</span>
+          </div>
+        </div>
+        <div class="recovery-card">
+          <img src="assets/images/recovered/scenario-underwater.png" alt="水下场景">
+          <div class="recovery-card-body">
+            <h3>scenario-underwater.png</h3>
+            <p>原水下清理器场景氛围图。项目已删除。</p>
+            <span class="tag">8-15 19:27</span><span class="tag">项目已删</span>
+          </div>
+        </div>
+        <div class="recovery-card">
+          <img src="assets/images/recovered/toy-render.png" alt="越野车玩具渲染">
+          <div class="recovery-card-body">
+            <h3>越野车玩具 · 渲染主图</h3>
+            <p>橄榄绿合金压铸质感，适合「越野车玩具」项目最终主图或封面。</p>
+            <span class="tag">8-15 20:48</span><span class="tag">已找回</span>
+          </div>
+        </div>
+        <div class="recovery-card">
+          <img src="assets/images/recovered/toy-scenario.png" alt="越野车玩具场景">
+          <div class="recovery-card-body">
+            <h3>越野车玩具 · 场景图</h3>
+            <p>儿童在客厅地毯上玩越野车玩具，暖光居家场景。</p>
+            <span class="tag">8-15 20:48</span><span class="tag">已找回</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="recovery-note">
+        <h3 class="heading-3">未找回的 3 张</h3>
+        <p>hero-dslr.png、hero-headphones.png、hero-catnest.png 在本地 modify_backup 与 blobs 缓存中均未找到完整文件。它们可能是通过临时 blob URL 引用、未被自动备份，或在清理时被永久删除。</p>
+        <p class="mt-4"><strong>解决方案：</strong></p>
+        <ul style="padding-left:var(--space-5); margin-top:var(--space-3);">
+          <li>A. 基于现有真实素模重新生成 3 张带光影的 AI 渲染图（ImageGen / 混元）</li>
+          <li>B. 如果你本地还保存有这 3 张原图，直接发给我路径或上传</li>
+          <li>C. 保持当前真实素模主图，只用已找回的图补充首页/场景</li>
+        </ul>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

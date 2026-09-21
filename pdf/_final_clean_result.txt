@@ -1,0 +1,13 @@
+REMOVED:
+_cleanup_tmp.py
+_cleanup_result.txt
+
+ALREADY_GONE:
+_verify_jd2.py
+_mem_check.txt
+_mtime_check.txt
+_pkg_check.txt
+
+ALL _* IN PDF DIR NOW:
+_backup_pre_reorder_20260913_144447.pdf
+_final_clean.py
