@@ -1,0 +1,44 @@
+      <!-- 幽灵白模构图板 · 双布局。
+           wide = 桌面 / 平板横向 / A4 打印；tall = 手机竖屏。
+           单一构图在宽扁容器里必然左右留白、在竖长容器里必然上下留白，
+           这是「元素偏小、留白过多」的结构性成因，故按断点各出一套画布，
+           两套画布比例按实测容器比例设计，各自把画幅吃满。
+           两者都在 preserveAspectRatio="xMidYMid meet" 下等比缩放：
+           既不裁切也不变形。打印强制用 wide。
+           本区块由 _gen_cover_svg.py 自动注入，请勿手工编辑。 -->
+        <svg class="cover-svg cover-svg--wide" viewBox="0 0 1620 633" preserveAspectRatio="xMidYMid meet"
+             role="img" aria-label="桌面与打印版封面：智能猫窝、头戴式监听耳机、模块化单反相机与越野车玩具的白模散落构图">
+          <defs>
+            <filter id="ghostBlurW" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+              <feGaussianBlur stdDeviation="9"/>
+            </filter>
+          </defs>
+          <g filter="url(#ghostBlurW)" opacity="0.92">
+            <image href="assets/images/cover/ghost-headphones-01.png" width="403" height="507"
+                   transform="translate(-31 16) rotate(16 201.5 253.5)"/>
+            <image href="assets/images/cover/ghost-catnest-01.png" width="668" height="393"
+                   transform="translate(341 290) rotate(-10 334.0 196.5)"/>
+            <image href="assets/images/cover/ghost-truck-01.png" width="539" height="294"
+                   transform="translate(830 18) rotate(8 269.5 147.0)"/>
+            <image href="assets/images/cover/ghost-dslr-01.png" width="562" height="431"
+                   transform="translate(1153 260) rotate(-14 281.0 215.5)"/>
+          </g>
+        </svg>
+        <svg class="cover-svg cover-svg--tall" viewBox="0 0 915 1480" preserveAspectRatio="xMidYMid meet"
+             role="img" aria-label="移动端封面：智能猫窝、头戴式监听耳机、模块化单反相机与越野车玩具的白模纵向散落构图">
+          <defs>
+            <filter id="ghostBlurT" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+              <feGaussianBlur stdDeviation="9"/>
+            </filter>
+          </defs>
+          <g filter="url(#ghostBlurT)" opacity="0.92">
+            <image href="assets/images/cover/ghost-catnest-01.png" width="691" height="407"
+                   transform="translate(-59 98) rotate(-10 345.5 203.5)"/>
+            <image href="assets/images/cover/ghost-headphones-01.png" width="354" height="446"
+                   transform="translate(588 476) rotate(15 177.0 223.0)"/>
+            <image href="assets/images/cover/ghost-dslr-01.png" width="586" height="450"
+                   transform="translate(-6 687) rotate(-13 293.0 225.0)"/>
+            <image href="assets/images/cover/ghost-truck-01.png" width="637" height="347"
+                   transform="translate(150 1127) rotate(8 318.5 173.5)"/>
+          </g>
+        </svg>

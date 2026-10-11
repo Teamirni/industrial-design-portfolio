@@ -1,0 +1,627 @@
+/*
+  翁彥斌 · 工业设计作品集 v2 · 动效与交互层
+  ══════════════════════════════════════════════════════════════
+  设计依据：会话表格中列出的 5 个网页设计案例，逐案提取交互特征后落地。
+
+  · POCH (poch.studio)      文字遮罩揭示 / 项目行悬停位移 / 滚动驱动字带 / 页面淡切
+  · Webflow (webflow.com)   区块分段进入（stagger）/ 卡片抬升 + 箭头位移 /
+                            导航下划线自中心展开 / 导航滚动收窄
+  · Modulify (modulify.ai)  图片骨架 shimmer / 数字滚动计数 / 滚动 scrub 进度
+  · Motion (motion.dev)     参数基准与实现规范（见下「参数对齐」）
+  · Landdding (landdding.com) 卡片网格交错进场 / 悬停遮罩 + 标题上滑
+
+  ── 参数对齐 Motion.dev ──
+  · tween 默认时长 0.3s；弹簧 bounce 0.25 / damping 10 / mass 1
+  · 滚动值平滑 useSpring { stiffness: 100, damping: 30, restDelta: 0.001 }
+  · 视差 offset ["start end", "end start"]：背景层 ≤0.5×、前景 ≥1×
+  · 图片揭示用 clipPath inset 从中间向两侧展开
+  · 滚动进度 = scaleX(scrollYProgress)，originX 0
+  · 分组编排 delayChildren + stagger；退出动画与「滚动方向隐藏导航」照搬其范式
+
+  ── 三条硬约束 ──
+  1. 只动 transform / opacity / clip-path（合成层友好），绝不触发布局重排。
+  2. 总开关是 <html data-motion="on|off">：
+     'off' 时本文件全部动画规则不生效，页面回到纯静态 ——
+     无 JS、prefers-reduced-motion 两种情形都天然安全。
+  3. 打印必须完全中性化。build_pdf_v2.py 用 Edge 打印导出，
+     若未揭示的区块被导成空白页，整份 PDF 就废了。
+     —— 因此所有「隐藏起点」都写在 @keyframes 的 from 里或由 JS 添加，
+        并在 @media print 中统一 !important 归位。
+  ══════════════════════════════════════════════════════════════ */
+
+/* ───────── 动效令牌 ───────── */
+html[data-motion] {
+  /* 缓动：out 用于进入，inout 用于位移，soft 是 Motion.dev 文档示例曲线 */
+  --m-ease-out: cubic-bezier(.22, 1, .36, 1);
+  --m-ease-inout: cubic-bezier(.65, 0, .35, 1);
+  --m-ease-soft: cubic-bezier(0, .71, .2, 1.01);
+
+  /* 时长 */
+  --m-dur-fast: 200ms;
+  --m-dur-base: 320ms;
+  --m-dur-slow: 560ms;
+  --m-dur-hero: 900ms;
+
+  /* 节奏 */
+  --m-stagger: 70ms;
+  --m-rise: 26px;
+  --m-px: 1;              /* 视差强度系数：移动端由媒体查询下调 */
+}
+
+@media (max-width: 768px) {
+  html[data-motion] {
+    --m-rise: 18px;
+    --m-stagger: 55ms;
+    --m-px: .45;          /* 手机端视差减半：小屏幕上大位移会显廉价且耗电 */
+  }
+}
+
+/* ═══════════════ 一、滚动进度条（Motion.dev: scaleX←scrollYProgress） ═══════════════ */
+.m-scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: var(--ink);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  z-index: 1200;
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* ═══════════════ 二、封面：逐字遮罩揭示（POCH） ═══════════════
+   .cover-word 的每个字母由 HTML 内的 <span> 承载（见 index.html）。
+   隐藏起点写在 from 里、用 animation-fill-mode: both，
+   因此首帧即生效、不依赖 JS，也不存在「JS 没跑到就永久不可见」的风险。 */
+html[data-motion="on"] .cover-word > span {
+  display: inline-block;
+  animation: m-letter-up var(--m-dur-hero) var(--m-ease-soft) both;
+  animation-delay: calc(var(--i, 0) * 42ms + 140ms);
+}
+
+@keyframes m-letter-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, .72em, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+html[data-motion="on"] .cover-eyebrow {
+  animation: m-rise-in var(--m-dur-slow) var(--m-ease-out) both;
+  animation-delay: 60ms;
+}
+
+html[data-motion="on"] .cover-foot {
+  animation: m-rise-in var(--m-dur-slow) var(--m-ease-out) both;
+  animation-delay: 620ms;
+}
+
+@keyframes m-rise-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* 封面构图板：随滚动缓慢上浮（背景层 0.5× 视差，Motion.dev 口径） */
+html[data-motion="on"] .cover-art .cover-svg {
+  will-change: transform;
+}
+
+/* ═══════════════ 三、页面入口（项目页 / 关于页 hero） ═══════════════
+   与封面同理，用 CSS 动画，不进 JS 揭示队列（JS 会主动跳过 hero 区域）。 */
+html[data-motion="on"] .project-hero .label,
+html[data-motion="on"] .about-hero .label {
+  animation: m-rise-in var(--m-dur-base) var(--m-ease-out) both;
+  animation-delay: 40ms;
+}
+
+/* 主标题用 clip-path 从下往上「擦出」——POCH 的 mask 揭示，中文标题不拆字也成立 */
+html[data-motion="on"] .project-hero h1,
+html[data-motion="on"] .about-hero h1 {
+  animation: m-wipe-up var(--m-dur-slow) var(--m-ease-soft) both;
+  animation-delay: 120ms;
+}
+
+@keyframes m-wipe-up {
+  from {
+    opacity: 0;
+    clip-path: inset(0 0 100% 0);
+    transform: translate3d(0, 14px, 0);
+  }
+  to {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+html[data-motion="on"] .project-hero .body-large,
+html[data-motion="on"] .about-hero .body-large {
+  animation: m-rise-in var(--m-dur-slow) var(--m-ease-out) both;
+  animation-delay: 260ms;
+}
+
+/* hero 内的元信息格：分段编排（Motion.dev: delayChildren + stagger） */
+html[data-motion="on"] .project-hero .project-meta-grid > .meta-item {
+  animation: m-rise-in var(--m-dur-base) var(--m-ease-out) both;
+  animation-delay: calc(var(--m-i, 0) * 80ms + 380ms);
+}
+
+/* ═══════════════ 四、滚动揭示：初始隐藏态（JS 加 .is-in 后归位） ═══════════════
+   注意：JS 会跳过 .cover / .project-hero / .about-hero 内的元素，
+   避免与上面的入口动画叠加。 */
+
+/* 4-1 原子块：淡入 + 上移 */
+html[data-motion="on"] :is(
+  .project-card,
+  .figure,
+  .quote-block,
+  .failed-concept,
+  .skill-bar,
+  .timeline-list > li,
+  .stat-item,
+  .meta-item,
+  .viewer-wrap
+) {
+  opacity: 0;
+  transform: translate3d(0, var(--m-rise), 0);
+}
+
+/* 4-2 文字叶子：遮罩擦出（标题）/ 淡入上移（正文） */
+html[data-motion="on"] :is(
+  .label,
+  .heading-1,
+  .heading-2,
+  .heading-3,
+  .heading-4,
+  .stage-title,
+  .body,
+  .body-large,
+  .stage-body
+) {
+  opacity: 0;
+  transform: translate3d(0, calc(var(--m-rise) * .7), 0);
+}
+
+html[data-motion="on"] :is(
+  .heading-1,
+  .heading-2,
+  .stage-title
+) {
+  clip-path: inset(0 0 100% 0);
+}
+
+/* 4-3 揭示完成态 */
+html[data-motion="on"] .is-in {
+  opacity: 1 !important;
+  transform: translate3d(0, 0, 0) !important;
+  clip-path: inset(0 0 0 0) !important;
+  transition:
+    opacity var(--m-dur-slow) var(--m-ease-out),
+    transform var(--m-dur-slow) var(--m-ease-out),
+    clip-path var(--m-dur-slow) var(--m-ease-soft);
+  transition-delay: var(--m-delay, 0ms);
+}
+
+/* ═══════════════ 五、图片：骨架 shimmer + clip 揭示（Modulify + Motion.dev） ═══════════════ */
+/* 骨架不做「覆盖层元素」而做「图片自身背景」——覆盖层要测量图片盒模型，
+   图片未加载时高度为 0（width:100% + height:auto），必然错位。
+   直接把 shimmer 铺在 img 自己的盒子里，几何天然正确、零测量。 */
+html[data-motion="on"] .figure.is-loading img,
+html[data-motion="on"] .project-card-image.is-loading img {
+  background-image: linear-gradient(100deg,
+                    var(--bg-warm) 0%,
+                    #e9e9ea 42%,
+                    var(--bg-warm) 78%);
+  background-size: 220% 100%;
+  animation: m-shimmer 1.5s linear infinite;
+}
+
+/* 骨架阶段图片自身尚未绘出，用 min-height 兜住盒模型避免高度跳动 */
+html[data-motion="on"] .project-card-image.is-loading {
+  background-color: var(--bg-warm);
+}
+
+@keyframes m-shimmer {
+  from { background-position: 180% 0; }
+  to   { background-position: -80% 0; }
+}
+
+.figure {
+  position: relative;
+}
+
+/* clip 揭示：由 JS 加到已进入视口的图片上，与父级 .figure 的淡入同时发生 */
+html[data-motion="on"] .figure img.m-clip {
+  clip-path: inset(0 50% 0 50%);
+  transform: scale(1.05);
+  transition:
+    clip-path 780ms var(--m-ease-soft),
+    transform 900ms var(--m-ease-out);
+}
+
+html[data-motion="on"] .figure img.m-clip.is-in {
+  clip-path: inset(0 0 0 0);
+  transform: scale(1);
+}
+
+/* ═══════════════ 六、悬停反馈 ═══════════════ */
+
+/* 6-1 导航链接：下划线自中心展开（Webflow） */
+.nav-link {
+  position: relative;
+}
+
+.nav-link::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -6px;
+  height: 1.5px;
+  background-color: currentColor;
+  transform: scaleX(0);
+  transform-origin: 50% 50%;
+  transition: transform var(--m-dur-base) var(--m-ease-out);
+}
+
+@media (hover: hover) {
+  .nav-link:hover::after {
+    transform: scaleX(1);
+  }
+}
+
+.nav-link.active::after {
+  transform: scaleX(1);
+}
+
+/* 导航激活项原有 border-bottom 与上面的伪元素重复，去掉避免双线 */
+.nav-link.active {
+  border-bottom: none;
+}
+
+/* 6-2 项目卡片：图片放大 + 灰阶遮罩 + CTA 上滑（Landdding + Webflow）
+   遮罩与 CTA 由 JS 注入为装饰性元素（aria-hidden）。 */
+.project-card-image {
+  position: relative;
+}
+
+.project-card-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg,
+              rgba(10, 10, 10, 0) 34%,
+              rgba(10, 10, 10, .34) 100%);
+  opacity: 0;
+  transition: opacity var(--m-dur-base) var(--m-ease-out);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.card-cta {
+  display: block;
+  overflow: hidden;
+  height: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--ink);
+  transition: height var(--m-dur-base) var(--m-ease-out),
+              opacity var(--m-dur-base) var(--m-ease-out);
+  opacity: 0;
+}
+
+.card-cta > span {
+  display: inline-block;
+  transform: translate3d(0, 120%, 0);
+  transition: transform var(--m-dur-base) var(--m-ease-soft);
+}
+
+/* 末尾箭头：hover 时右移（Webflow 的箭头位移） */
+.card-cta::after {
+  content: '→';
+  display: inline-block;
+  margin-left: 6px;
+  transform: translate3d(0, 120%, 0);
+  transition: transform var(--m-dur-base) var(--m-ease-soft);
+}
+
+@media (hover: hover) {
+  .project-card:hover .project-card-image img {
+    transform: scale(1.06);
+  }
+
+  .project-card:hover .project-card-shade {
+    opacity: 1;
+  }
+
+  .project-card:hover .card-cta {
+    height: 18px;
+    opacity: 1;
+  }
+
+  .project-card:hover .card-cta > span,
+  .project-card:hover .card-cta::after {
+    transform: translate3d(0, 0, 0);
+    transition-delay: 40ms;
+  }
+
+  /* 标题随 hover 轻微右移（POCH 的项目行位移） */
+  .project-card:hover .project-card-title {
+    transform: translate3d(6px, 0, 0);
+  }
+}
+
+.project-card-title {
+  transition: transform var(--m-dur-base) var(--m-ease-out);
+}
+
+.project-card-index {
+  transition: opacity var(--m-dur-base) var(--m-ease-out);
+}
+
+/* 6-3 图片：hover 轻微放大（仅指针设备，避免触屏残留缩放态） */
+@media (hover: hover) and (min-width: 769px) {
+  .figure img:not(.m-clip),
+  .image-row .figure img {
+    transition: transform var(--m-dur-slow) var(--m-ease-out);
+  }
+
+  .figure img:hover {
+    transform: scale(1.015);
+  }
+}
+
+/* 6-4 按钮：磁性位移（由 JS 写入 --m-mx / --m-my），箭头右移 */
+.btn {
+  position: relative;
+  transition:
+    transform var(--m-dur-base) var(--m-ease-out),
+    background var(--m-dur-base) var(--m-ease-out),
+    border-color var(--m-dur-base) var(--m-ease-out),
+    color var(--m-dur-base) var(--m-ease-out);
+}
+
+html[data-motion="on"] .btn {
+  transform: translate3d(var(--m-mx, 0px), var(--m-my, 0px), 0);
+}
+
+/* 6-5 小卡片的发丝线反馈（黑白体系下用描边承担「发光」的语义） */
+@media (hover: hover) {
+  .failed-concept,
+  .stat-item,
+  .meta-item {
+    transition: border-color var(--m-dur-base) var(--m-ease-out),
+                transform var(--m-dur-base) var(--m-ease-out);
+  }
+
+  .failed-concept:hover {
+    transform: translate3d(0, -3px, 0);
+    border-color: var(--ink-subtle);
+  }
+
+  .stat-item:hover {
+    transform: translate3d(0, -3px, 0);
+  }
+}
+
+/* ═══════════════ 七、滚动字带（POCH 的 scroll text lines） ═══════════════
+   两行反向、由滚动位置驱动横向位移；实心 / 描边交替。
+   放在页脚之上，与深色页脚连成一块，给页面收尾一个节奏落点。 */
+.ticker-band {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--bg-dark);
+  padding: var(--space-7) 0 var(--space-6);
+  user-select: none;
+}
+
+.m-ticker {
+  display: flex;
+  white-space: nowrap;
+  will-change: transform;
+}
+
+.m-ticker + .m-ticker {
+  margin-top: var(--space-3);
+}
+
+.m-ticker > span {
+  flex: 0 0 auto;
+  font-family: var(--font-display);
+  font-size: clamp(28px, 5.4vw, 68px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -.02em;
+  padding-right: .34em;
+  color: var(--ink-light);
+}
+
+.m-ticker > span.is-outline {
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(255, 255, 255, .5);
+}
+
+/* ═══════════════ 八、滚动 scrub 进度线（Modulify + Motion.dev） ═══════════════ */
+/* 由 JS 在第 2 行（含多个 track 的容器）挂载；无线条时规则不生效 */
+.m-scrub-line {
+  position: absolute;
+  left: 5px;
+  top: 8px;
+  width: 1px;
+  background-color: var(--ink);
+  transform-origin: 50% 0;
+  transform: scaleY(0);
+  will-change: transform;
+  pointer-events: none;
+}
+
+/* ═══════════════ 九、滚动方向隐藏导航（Motion.dev: scroll-hide-header） ═══════════════
+   ⚠️ 必须用 !important：style.css 里 `body.cover-mode.nav-revealed .nav` 的
+   特异度是 (0,3,1)，高于本文件任何不以 !important 书写的选择器，
+   且在首页滚过封面后它恒为真 —— 不加 !important 会让「向下滚动收起导航」永久失效。
+   封面模式下导航本就收起，两者不会互相干扰。 */
+.nav.nav-hide {
+  transform: translateY(-100%) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* ═══════════════ 十、页面切换（Motion.dev: AnimatePresence 的跨页等价物） ═══════════════ */
+/* 10-1 原生跨文档 View Transitions */
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-old(root) {
+  animation: m-vt-out 220ms var(--m-ease-inout) both;
+}
+
+::view-transition-new(root) {
+  animation: m-vt-in 340ms var(--m-ease-out) both;
+}
+
+@keyframes m-vt-out {
+  to {
+    opacity: 0;
+    transform: translate3d(0, -10px, 0) scale(.995);
+  }
+}
+
+@keyframes m-vt-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0) scale(.995);
+  }
+}
+
+/* 10-2 无 View Transitions 支持时的降级：整页淡出后再跳转 */
+html[data-motion="on"] body {
+  transition: opacity 220ms var(--m-ease-inout), transform 220ms var(--m-ease-inout);
+}
+
+html[data-motion="on"] body.is-leaving {
+  opacity: 0;
+  transform: translate3d(0, -8px, 0);
+  pointer-events: none;
+}
+
+/* ═══════════════ 十一、触屏与性能保护 ═══════════════ */
+/* 移动端 backdrop-filter 成本高且易掉帧：只在桌面启用导航毛玻璃 */
+@media (min-width: 1024px) and (hover: hover) {
+  .nav.scrolled {
+    backdrop-filter: saturate(180%) blur(12px);
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+    background-color: rgba(255, 255, 255, .82);
+  }
+}
+
+/* 触屏设备不保留 hover 缩放残留 */
+@media (hover: none) {
+  .project-card-shade {
+    opacity: .55;
+  }
+
+  .card-cta {
+    height: 18px;
+    opacity: .85;
+  }
+
+  .card-cta > span,
+  .card-cta::after {
+    transform: none;
+  }
+}
+
+/* ═══════════════ 十二、减弱动效（prefers-reduced-motion） ═══════════════
+   总开关被内联脚本置为 off，本文件所有 html[data-motion="on"] 规则全部失效；
+   此处再兜一道底：禁止一切动画与过渡，确保静态可读。 */
+html[data-motion="off"] *,
+html[data-motion="off"] *::before,
+html[data-motion="off"] *::after {
+  animation-duration: .001ms !important;
+  animation-delay: 0ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: .001ms !important;
+  transition-delay: 0ms !important;
+}
+
+html[data-motion="off"] .m-scroll-progress {
+  display: none !important;
+}
+
+/* ═══════════════ 十三、打印 / PDF 导出中性化（关键） ═══════════════
+   必须把每一个「隐藏起点」都归位，否则 build_pdf_v2.py 会把
+   尚未揭示的区块打印成空白页、页码与内容全错。 */
+@media print {
+  html[data-motion] :is(
+    .project-card,
+    .figure,
+    .quote-block,
+    .failed-concept,
+    .skill-bar,
+    .timeline-list > li,
+    .stat-item,
+    .meta-item,
+    .viewer-wrap,
+    .label,
+    .heading-1,
+    .heading-2,
+    .heading-3,
+    .heading-4,
+    .stage-title,
+    .body,
+    .body-large,
+    .stage-body,
+    .cover-word > span,
+    .cover-eyebrow,
+    .cover-foot
+  ) {
+    opacity: 1 !important;
+    transform: none !important;
+    clip-path: none !important;
+    animation: none !important;
+    transition: none !important;
+  }
+
+  /* ⚠️ 必须单独列出 .m-clip：clip 揭示的 clip-path 挂在 <img> 上而不是 .figure 上，
+     漏掉这一条会让「未滚动到的图片」以 inset(0 50% 0 50%) 被导出成完全不可见。 */
+  html[data-motion] img.m-clip {
+    clip-path: none !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  /* 装饰性动效元素不进入 PDF */
+  .m-scroll-progress,
+  .ticker-band,
+  .project-card-shade,
+  .card-cta,
+  .m-scrub-line {
+    display: none !important;
+  }
+
+  /* 骨架 shimmer 即便动画被停掉，也不该在图片下方留一块灰渐变 */
+  .figure.is-loading img,
+  .project-card-image.is-loading img {
+    background-image: none !important;
+    animation: none !important;
+  }
+
+  .project-card-title {
+    transform: none !important;
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "layouts": {
+    "wide": {
+      "vw": 1620,
+      "vh": 633,
+      "plan": [
+        [
+          "ghost-headphones-01.png",
+          -31,
+          16,
+          403,
+          16
+        ],
+        [
+          "ghost-catnest-01.png",
+          341,
+          290,
+          668,
+          -10
+        ],
+        [
+          "ghost-truck-01.png",
+          830,
+          18,
+          539,
+          8
+        ],
+        [
+          "ghost-dslr-01.png",
+          1153,
+          260,
+          562,
+          -14
+        ]
+      ]
+    },
+    "tall": {
+      "vw": 915,
+      "vh": 1480,
+      "plan": [
+        [
+          "ghost-catnest-01.png",
+          120,
+          30,
+          679,
+          -10
+        ],
+        [
+          "ghost-headphones-01.png",
+          544,
+          499,
+          339,
+          15
+        ],
+        [
+          "ghost-dslr-01.png",
+          75,
+          468,
+          357,
+          -13
+        ],
+        [
+          "ghost-truck-01.png",
+          182,
+          993,
+          386,
+          8
+        ]
+      ]
+    }
+  }
+}

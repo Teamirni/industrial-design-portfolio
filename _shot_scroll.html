@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>截图测试台 · 任意滚动位置</title>
+  <!--
+    为什么需要这个文件：
+      Edge 旧版 --headless 的 --screenshot 只能截取「当前视口」，
+      无法滚动，也没有依赖的 CDP 客户端可用。
+      但把站点页面放进同源 iframe 后，父页可以用 contentWindow.scrollTo
+      直接控制滚动位置 —— 于是「滚动到任意位置再截图」变得零依赖可实现。
+
+    为什么不能靠「把窗口拉高到 9000px」代替：
+      .cover{min-height:100vh} 会跟着窗口高度一起变成 9000px，
+      封面吃掉整屏，下面的内容全被推到视口外，截出来的是错的。
+
+    参数：?p=index.html&y=1200   p=页面路径，y=滚动像素
+    窗口尺寸即视口尺寸（脚本用 --window-size 传），保证 iframe 内 vh 与真机一致。
+  -->
+  <style>
+    html, body { margin: 0; padding: 0; overflow: hidden; background: #fff; }
+    iframe { display: block; width: 100vw; height: 100vh; border: 0; }
+  </style>
+</head>
+<body>
+  <iframe id="stage"></iframe>
+  <script>
+    (function () {
+      var q = location.search;
+      function pick(key, dflt) {
+        var m = q.match(new RegExp('[?&]' + key + '=([^&]*)'));
+        return m ? decodeURIComponent(m[1]) : dflt;
+      }
+      var page = pick('p', 'index.html');
+      var y = parseInt(pick('y', '0'), 10) || 0;
+      var wait = parseInt(pick('w', '500'), 10) || 500;
+
+      var f = document.getElementById('stage');
+      f.addEventListener('load', function () {
+        setTimeout(function () {
+          try {
+            var d = f.contentDocument;
+            /* 站点的 html 上是 scroll-behavior:smooth，
+               直接 scrollTo 会变成一段动画，截图会抓到中间帧。
+               先强制回 auto，保证定位精确。 */
+            if (d.documentElement) d.documentElement.style.scrollBehavior = 'auto';
+            f.contentWindow.scrollTo(0, y);
+          } catch (e) {
+            document.title = 'SCROLL FAILED: ' + e.message;
+          }
+
+          /* 诊断：把动效层此刻的真实状态写进 title，
+             配合 Edge --dump-dom 即可在不依赖 CDP 的前提下读回。
+             （推理出来的「应该生效」不算证据，这是唯一能拿到 inside-iframe 真实值的手段） */
+          setTimeout(function () {
+            try {
+              var d2 = f.contentDocument;
+              var sel = '.project-card,.figure,.quote-block,.failed-concept,.skill-bar,' +
+                        '.timeline-list>li,.stat-item,.meta-item,.viewer-wrap,.label,' +
+                        '.heading-1,.heading-2,.heading-3,.heading-4,.stage-title,' +
+                        '.body,.body-large,.stage-body';
+              var targets = d2.querySelectorAll(sel).length;
+              var inn = d2.querySelectorAll('.is-in').length;
+              var probe = d2.querySelector('.heading-2') || d2.querySelector('.body-large');
+              var op = probe ? getComputedStyle(probe).opacity : 'n/a';
+              var tr = probe ? getComputedStyle(probe).transform : 'n/a';
+              document.title = 'DIAG motion=' + d2.documentElement.getAttribute('data-motion') +
+                ' targets=' + targets + ' isin=' + inn +
+                ' probeOpacity=' + op + ' probeTransform=' + tr +
+                ' scrollY=' + Math.round(f.contentWindow.pageYOffset) +
+                ' innerH=' + f.contentWindow.innerHeight +
+                ' docH=' + d2.documentElement.scrollHeight +
+                ' ticker=' + d2.querySelectorAll('.m-ticker > span').length;
+            } catch (e2) {
+              document.title = 'DIAG FAILED: ' + e2.message;
+            }
+          }, 1400);
+        }, wait);
+      });
+      f.src = page;
+    })();
+  </script>
+</body>
+</html>

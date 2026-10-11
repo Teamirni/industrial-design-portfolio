@@ -8,15 +8,31 @@
 
   /* ───────── 导航滚动 ───────── */
   const nav = document.querySelector('.nav');
+  const cover = document.querySelector('.cover');
+
+  /* 封面是无顶栏的全幅构图（参考图风格）：导航固定压在最上层会盖住
+     构图板上缘的模型，形成「框架感」。因此进入封面即收起导航，
+     待封面下缘升到视口上方后再自顶部滑入，并转为实底。 */
+  if (cover) {
+    document.body.classList.add('cover-mode');
+  }
+
   if (nav) {
+    const REVEAL_MARGIN = 96;
     const onScroll = () => {
       if (window.scrollY > 40) {
         nav.classList.add('scrolled');
       } else {
         nav.classList.remove('scrolled');
       }
+      if (cover) {
+        const bottom = cover.getBoundingClientRect().bottom;
+        document.body.classList.toggle(
+          'nav-revealed', bottom < window.innerHeight - REVEAL_MARGIN);
+      }
     };
     window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
     onScroll();
   }
 
@@ -30,6 +46,8 @@
       const isOpen = mobileMenu.classList.contains('open');
       mobileMenu.classList.toggle('open');
       if (nav) nav.classList.toggle('menu-open', !isOpen);
+      /* 菜单打开时保证导航可见，避免收起态把汉堡按钮一起藏掉 */
+      if (!isOpen && cover) document.body.classList.add('nav-revealed');
       menuToggle.setAttribute('aria-expanded', String(!isOpen));
       document.body.style.overflow = isOpen ? '' : 'hidden';
     });

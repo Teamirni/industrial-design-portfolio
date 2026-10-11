@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>动效时序探针</title>
+  <!--
+    为什么需要它：
+      截图只能取一帧，证明不了「动效」—— 时长、缓动曲线形状、错峰顺序、
+      弹簧收敛都读不出来，甚至连终态都抓不准（虚拟时间下常抓到中间帧）。
+
+    为什么是「逐元素串行测量」而不是「连续滚动一次性采样」：
+      本环境（Edge 旧版 headless + --virtual-time-budget）下，用 16ms 定时器
+      连续 scrollTo 会饿死子框架的 requestAnimationFrame，
+      站点里挂在 rAF 上的滚动管线就完全不跑 —— 实测 250 帧全部 tStart=null。
+      单次 scrollTo + 定时器等待则稳定触发。
+      因此改为：把待测元素停在触发线下方 → 一次性推过触发线 → 采样它的完整过渡曲线。
+      每次测量只依赖一次滚动，结果确定、可复现，代价是耗时更长（每元素 ~1.6s）。
+
+    测量项：
+      A) 封面逐字揭示：字母的 opacity / translateY 轨迹与错峰间隔（CSS 关键帧）
+      B) 揭示过渡：每个代表元素的延迟、时长、25/50/75% 处归一化进度
+         → 与计算样式里声明的 cubic-bezier 理论值对比，判断缓动是否真的生效
+      C) 声明回读：computedStyle 中实际生效的 transition 规格（最硬的证据）
+      D) 错峰：同一网格内各元素「首次变化时刻」的间隔
+      E) 数字滚动：末值是否精确回到原文、是否单调
+      F) 磁性按钮：--m-mx 跟手位移与松手回落
+      G) 页面切换能力探测：跨文档 View Transitions 是否可用
+
+    用法：_probe_motion.html?p=index.html
+  -->
+  <style>
+    html, body { margin: 0; padding: 0; overflow: hidden; background: #fff; }
+    iframe { display: block; width: 100vw; height: 100vh; border: 0; }
+    pre { position: fixed; left: -9999px; top: 0; }
+  </style>
+</head>
+<body>
+  <iframe id="stage"></iframe>
+  <pre id="probe">PENDING</pre>
+  <script>
+    (function () {
+      var q = location.search;
+      function pick(k, d) {
+        var m = q.match(new RegExp('[?&]' + k + '=([^&]*)'));
+        return m ? decodeURIComponent(m[1]) : d;
+      }
+      var page = pick('p', 'index.html');
+      var FRAME = 16;
+      var out = document.getElementById('probe');
+      var f = document.getElementById('stage');
+
+      function num(v) { return Math.round(parseFloat(v) * 1000) / 1000; }
+
+      f.addEventListener('load', function () { setTimeout(boot, 700); });
+      f.src = page;
+
+      function boot() {
+        var d, w;
+        try {
+          d = f.contentDocument;
+          w = f.contentWindow;
+        } catch (e) {
+          out.textContent = 'IFRAME ACCESS FAILED: ' + e.message;
+          return;
+        }
+        if (d.documentElement) d.documentElement.style.scrollBehavior = 'auto';
+
+        var reduced = false;
+        try { reduced = w.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e0) {}
+        if (reduced) { probeStatic(d, w); return; }
+
+        var R = {
+          page: page,
+          reduced: false,
+          dataMotion: d.documentElement.getAttribute('data-motion'),
+          docH: d.documentElement.scrollHeight,
+          innerH: w.innerHeight,
+          steps: [],
+          letters: null,
+          reveal: [],
+          declared: [],
+          stagger: null,
+          counters: null,
+          magnetic: null,
+          transition: null,
+          notes: [],
+          errors: [],
+          diag: []
+        };
+
+        /* 子框架的运行时异常必须先被看见：
+           motion.js 若在某一步抛错，外在现象与「元素没被扫到」完全一样
+           —— 都是 opacity 永久停在 0。没有这层捕获就只能靠猜。 */
+        try {
+          w.addEventListener('error', function (ev) {
+            R.errors.push(String((ev && (ev.message || ev.type)) || ev));
+          });
+          w.addEventListener('unhandledrejection', function (ev) {
+            R.errors.push('rejection: ' + String(ev && ev.reason));
+          });
+        } catch (eErr) {}
+
+        /* 环境体检：本探针有一部分测量项（弹簧位移、视差、字带）依赖站点
+           自己的 rAF 循环，而 rAF 在无头 + --virtual-time-budget 下可能被饿死。
+           先把这一点单独量出来，才能把「功能坏了」与「本环境测不了」分开 ——
+           否则磁性按钮测到 0px 会被误判成实现缺陷。 */
+        R.env = {
+          pointerFine: (function () {
+            try { return w.matchMedia('(pointer: fine)').matches; } catch (e) { return 'n/a'; }
+          })(),
+          hoverNone: (function () {
+            try { return w.matchMedia('(hover: none)').matches; } catch (e) { return 'n/a'; }
+          })()
+        };
+        /* 站点认定「触摸设备」就会跳过磁性绑定，这里同步该判定 */
+        R.env.siteIsTouch = (R.env.hoverNone === true) || (R.env.pointerFine === false);
+        /* 站点 IIFE 里已有的异常不影响这里的监听；再补一次窗口级快照 */
+        R.motionReadyFlag = ('__motionReady' in w) ? w.__motionReady : 'absent';
+
+        /* ── 通用采样器 ──
+           时钟 = 迭代序号 × 16ms（子框架的 performance.now() 在虚拟时间下不推进）。
+
+           ★ 为什么调度只用定时器
+             · 全用 rAF：渲染器永不空闲 → 虚拟时间停摆 → 探针永远停在 PENDING；
+             · rAF/定时器交替：rAF 一旦被饿死，链就永久停等 → 同样 PENDING；
+             · 全用定时器：循环一定终止，但连续定时器会饿死子框架的 rAF。
+           结论：用定时器保证终止，再用 LEAD_MS 静默窗口把「触发」与「密集采样」
+           在时间上解耦 —— 静默窗口内队列只有单个待执行任务，站点的滚动管线
+           能正常跑完一轮（实测等效于 _shot_scroll 的单次 scrollTo 场景）；
+           而 CSS 过渡一旦开始就不再依赖 rAF，后续密集采样不会打断它。 */
+        var LEAD_MS = 70;
+
+        function sample(targets, ms, read, cb, frameMs) {
+          /* ★ frameMs 可覆盖默认 16ms
+             本环境里 scroll 事件派发与 CSS 过渡推进共用同一条渲染管线，
+             16ms 的密集定时器链会把这条管线饿死 —— 表现为「.is-in 已加上、
+             过渡声明已生效，但 opacity 恒为起始值」。
+             放宽采样间隔（50ms）能让渲染器在两次采样之间有任务间隙，
+             过渡才有机会推进。代价是时间分辨率下降，对 ≥500ms 的过渡仍够用。 */
+          var FR = frameMs || FRAME;
+          var log = targets.map(function () { return []; });
+          var iter = 0;
+          var MAX = Math.ceil(ms / FR);
+
+          (function step() {
+            var t = iter * FR;
+            for (var i = 0; i < targets.length; i++) {
+              log[i].push([t].concat(read(targets[i], w)));
+            }
+            iter++;
+            if (iter < MAX) setTimeout(step, FR);
+            else cb(log);
+          })();
+        }
+
+        function readOpacity(el, win) { return [num(win.getComputedStyle(el).opacity)]; }
+
+        function docY(el, win) {
+          return el.getBoundingClientRect().top + win.pageYOffset;
+        }
+
+        /* 把元素停在触发线（视口 90% 高）下方，确保它此刻「不该」已揭示 */
+        function parkBelow(el) {
+          w.scrollTo(0, Math.max(0, docY(el, w) - w.innerHeight * 0.95));
+        }
+        /* 一次性推过触发线 */
+        function pushPast(el) {
+          w.scrollTo(0, Math.max(0, docY(el, w) - w.innerHeight * 0.45));
+        }
+
+        /* ── 把过渡曲线折算成「延迟 / 时长 / 归一化进度」 ── */
+        function analyze(log, idx) {
+          var t0 = null, t1 = null, baseline = null;
+          for (var i = 0; i < log.length; i++) {
+            var v = log[i][idx];
+            if (baseline === null && i === 0) baseline = v;
+            if (t0 === null && v > baseline + 0.001) t0 = log[i][0];
+            if (t0 !== null && v >= 0.999) { t1 = log[i][0]; break; }
+          }
+          var rec = {
+            valueStart: baseline,
+            valueEnd: log.length ? log[log.length - 1][idx] : null,
+            tStart: t0, tEnd: t1,
+            duration: (t0 !== null && t1 !== null) ? (t1 - t0) : null,
+            samples: log.length
+          };
+          if (t0 !== null && t1 !== null && t1 > t0) {
+            var span = t1 - t0;
+            rec.curve = [0.25, 0.5, 0.75].map(function (p) {
+              var want = t0 + span * p, best = log[0];
+              for (var k = 0; k < log.length; k++) {
+                if (Math.abs(log[k][0] - want) < Math.abs(best[0] - want)) best = log[k];
+              }
+              return { at: p, value: best[idx] };
+            });
+          }
+          return rec;
+        }
+
+        /* ── 声明回读：渲染引擎里实际生效的 transition 规格 ── */
+        function decl(el, label) {
+          var cs = w.getComputedStyle(el);
+          R.declared.push({
+            label: label,
+            property: cs.transitionProperty,
+            duration: cs.transitionDuration,
+            timing: cs.transitionTimingFunction,
+            delay: cs.transitionDelay
+          });
+        }
+
+        var queue = [];
+
+        /* ── 诊断原语：把「扫不到」与「扫到了但过渡没生效」分开 ──
+           这是本轮排查的关键工具。此前只知道终值=0，无法判断是
+             (a) motion.js 抛错、(b) 元素不在扫描序列内、(c) 扫描指针没推进、
+             (d) 类加上了但过渡声明丢失。
+           elState 取元素自身状态，sweepIndexOf 取它在扫描序列里的下标（-1=不在序列内）。 */
+        function elState(el) {
+          if (!el) return null;
+          var cs = w.getComputedStyle(el);
+          return {
+            revealed: !!el.__revealed,
+            isIn: el.classList.contains('is-in'),
+            opacity: num(cs.opacity),
+            delay: cs.transitionDelay,
+            dur: cs.transitionDuration,
+            tf: cs.transitionTimingFunction,
+            top: Math.round(el.getBoundingClientRect().top),
+            docY: Math.round(docY(el, w))
+          };
+        }
+
+        /* 与 js/motion.js 的 LEAF_SEL + BLOCK_SEL 保持同源。
+           若两处不同步，本站的内容就会出现「CSS 藏起来了、JS 却不负责揭示」的
+           永久不可见元素 —— 这正是本探针要守的回归点。 */
+        var LEAF_SEL = '.label, .heading-1, .heading-2, .heading-3, .heading-4, ' +
+                       '.stage-title, .body, .body-large, .stage-body';
+        var BLOCK_SEL = '.project-card, .figure, .quote-block, .failed-concept, ' +
+                        '.skill-bar, .timeline-list > li, .stat-item, .meta-item, .viewer-wrap';
+        var _sweepOrder = null;
+
+        function sweepOrder() {
+          if (!_sweepOrder) {
+            _sweepOrder = Array.prototype.slice.call(d.querySelectorAll(LEAF_SEL + ',' + BLOCK_SEL))
+              .filter(function (e) { return !e.closest('.cover, .project-hero, .about-hero'); });
+          }
+          return _sweepOrder;
+        }
+
+        function isin() { return d.querySelectorAll('.is-in').length; }
+
+        function revealedInSweep() {
+          return sweepOrder().filter(function (e) { return !!e.__revealed; }).length;
+        }
+
+        /* ── 本 harness 的关键缺陷：程序化 scrollTo 不投递 scroll 事件 ──
+           实测：探针把 iframe 滚动位置从 835 改到 1285（pageYOffset 确实变了），
+           但站点 window 上的 scroll 监听一次都没被调用 —— 于是挂在 onScroll 里的
+           200ms 兜底定时器也永远不武装，整条滚动管线彻底静止（isin 恒为 0）。
+           这**不是**站点缺陷：真实浏览器里滚动必然派发 scroll 事件，
+           站点的 rAF + 定时器双保险已经覆盖了「rAF 被节流」这一类真实故障。
+           为让测量得以进行，探针补投一次合成 scroll 事件：
+           监听器、滚动管线、CSS 过渡全部跑的是站点真实代码，
+           仅「事件投递」这一环由探针代劳，并在报告中显式标注。 */
+        var scrollEventCount = 0;
+        try {
+          w.addEventListener('scroll', function () { scrollEventCount++; }, { passive: true });
+        } catch (eSC) {}
+
+        function nudge() {
+          try { w.dispatchEvent(new w.Event('scroll')); } catch (eN) {}
+        }
+
+        /* ── 0. rAF 存活判定（必须先跑，且必须在任何密集采样之前） ──
+           放在队列首位是为了让这 500ms 里没有任何竞争者：
+           若此时 rAF 都不回调，那么后续任何挂在 rAF 上的测量项都注定读到静值。 */
+        R.rAFLive = null;
+        queue.push(function (next) {
+          var seen = false;
+          try { w.requestAnimationFrame(function () { seen = true; }); } catch (e) {}
+          setTimeout(function () { R.rAFLive = seen; next(); }, 500);
+        });
+
+        /* ── A. 封面逐字揭示（CSS 关键帧，页面加载即发生） ── */
+        queue.push(function (next) {
+          var spans = Array.prototype.slice.call(d.querySelectorAll('.cover-word > span'));
+          if (!spans.length) { R.notes.push('无封面逐字元素'); return next(); }
+          /* read 返回 [opacity, translateY]，故 log[i] = [t, opacity, translateY] */
+          sample(spans, 1200, function (el, win) {
+            var cs = win.getComputedStyle(el);
+            var ty = 0;
+            var m = (cs.transform || '').match(/matrix\(([^)]+)\)/);
+            if (m) ty = num(m[1].split(',')[5]);
+            return [num(cs.opacity), ty];
+          }, function (log) {
+            /* ★ 声明层证据优先
+               CSS 动画时钟在虚拟时间下会被冻住（实测 opacity/translateY 全程恒定，
+               抓到的是同一个中间帧），所以「采样首动时刻」在本 harness 里不可信。
+               真正该验证的是：每个字母的 animation-delay 是否按 --i 递增 ——
+               这是从渲染引擎读回的声明值，不受时钟是否推进影响。 */
+            var specs = spans.map(function (el) {
+              var cs = w.getComputedStyle(el);
+              return {
+                letter: el.textContent,
+                name: cs.animationName,
+                dur: cs.animationDuration,
+                delay: cs.animationDelay,
+                tf: cs.animationTimingFunction
+              };
+            });
+            function toMs(v) {
+              if (v === null || v === undefined) return null;
+              var s = String(v).trim();
+              var n = parseFloat(s);
+              if (isNaN(n)) return null;
+              return /ms\s*$/.test(s) ? Math.round(n) : Math.round(n * 1000);
+            }
+            var delaysMs = specs.map(function (s) { return toMs(s.delay); });
+            var declaredGaps = [];
+            for (var dg = 1; dg < delaysMs.length; dg++) {
+              if (delaysMs[dg] !== null && delaysMs[dg - 1] !== null) {
+                declaredGaps.push(delaysMs[dg] - delaysMs[dg - 1]);
+              }
+            }
+            /* 采样层：仅作参考，并显式给出「动画是否在推进」的判定 */
+            var per = spans.map(function (el, i) {
+              var rows = log[i];
+              var t0 = null;
+              for (var r = 0; r < rows.length; r++) {
+                if (rows[r][1] > 0.02) { t0 = rows[r][0]; break; }
+              }
+              return {
+                letter: el.textContent,
+                tFirstVisible: t0,
+                opacityAt: [rows[0][1], rows[Math.floor(rows.length / 2)][1], rows[rows.length - 1][1]],
+                translateYAt: [rows[0][2], rows[rows.length - 1][2]]
+              };
+            });
+            var firsts = per.map(function (p) { return p.tFirstVisible; });
+            var gaps = [];
+            for (var g = 1; g < firsts.length; g++) {
+              if (firsts[g] !== null && firsts[g - 1] !== null) gaps.push(firsts[g] - firsts[g - 1]);
+            }
+            var opFrozen = per[0].opacityAt[0] === per[0].opacityAt[2];
+            var tyFrozen = per[0].translateYAt[0] === per[0].translateYAt[1];
+            R.letters = {
+              count: spans.length,
+              wordsDetected: spans.map(function (s) { return s.textContent; }).join(''),
+              firstVisibleTimes: firsts,
+              gaps: gaps,
+              translateYStart: per[0].translateYAt[0],
+              translateYEnd: per[0].translateYAt[1],
+              opacityStart: per[0].opacityAt[0],
+              opacityEnd: per[0].opacityAt[2],
+              samples: log[0].length,
+              /* 声明层：错峰是否成立的硬证据 */
+              specs: specs,
+              declaredDelaysMs: delaysMs,
+              declaredGapsMs: declaredGaps,
+              /* 采样层是否可信 */
+              animationClockUsable: !(opFrozen || tyFrozen)
+            };
+            next();
+          });
+        });
+
+        /* ── B. 揭示过渡：逐个元素串行测量 ── */
+        [['.heading-2', '标题（擦出）'],
+         ['.body-large', '正文'],
+         ['.project-card', '项目卡'],
+         ['.quote-block', '引用块'],
+         ['.figure', '图片块（含 clip 揭示）'],
+         ['.stat-item', '数据卡']].forEach(function (pair) {
+          queue.push(function (next) {
+            var list = d.querySelectorAll(pair[0]);
+            if (!list.length) { R.notes.push('跳过 ' + pair[0] + '：页面无此元素'); return next(); }
+            /* 取最靠下的一个，保证它不是在加载时就已揭示的 */
+            var el = list[list.length - 1];
+            /* .figure 的 clip 揭示挂在内部 <img> 上，不是 .figure 本身，
+               所以两个都作为采样目标，分开取列。 */
+            var img = el.classList.contains('figure') ? el.querySelector('img') : null;
+            var targets = img ? [el, img] : [el];
+
+            parkBelow(el);
+            setTimeout(function () {
+              /* 快照① 停靠后：目标此刻「不应」已揭示，且 ptr 应恰好停在它前面 */
+              var snapPark = {
+                scrollY: Math.round(w.pageYOffset),
+                target: elState(el),
+                isin: isin(), revealed: revealedInSweep()
+              };
+              pushPast(el);
+              /* 快照② 推过触发线后（同步读）：用来确认滚动是否真的生效了。
+                 站点管线是异步的（rAF 或 200ms 兜底），此刻 is-in 还不该出现。 */
+              var snapPush = {
+                scrollY: Math.round(w.pageYOffset),
+                target: elState(el),
+                isin: isin(), revealed: revealedInSweep()
+              };
+              /* ③ 先给站点 450ms（> 其 200ms 兜底窗口）自证：
+                   若揭示数增长，说明本环境确实投递了 scroll 事件，管线自发跑通；
+                   若与停靠时持平，说明事件没送达 —— 此时补一次合成事件继续测量，
+                   并如实记录「本环境需代投事件」。 */
+              setTimeout(function () {
+                var spontaneous = isin();
+                if (spontaneous <= snapPark.isin) nudge();
+                R.nudged = R.nudged || (spontaneous <= snapPark.isin);
+                /* 静默窗口：让站点的滚动管线跑完一轮、把 .is-in 加上去。
+                   过渡一旦启动即脱离 rAF，后续密集采样不会打断它。 */
+                setTimeout(function () {
+                sample(targets, 2000, function (e, win) {
+                var cs = win.getComputedStyle(e);
+                var op = num(cs.opacity);
+                if (img && e === img) {
+                  var cp = cs.clipPath || '';
+                  var m = cp.match(/inset\(([^)]+)\)/);
+                  var pct = null;
+                  if (m) {
+                    var parts = m[1].split(/\s+/);
+                    var v = parseFloat(parts[1]);
+                    pct = isNaN(v) ? null : num(v);
+                  }
+                  return [op, pct];
+                }
+                return [op];
+              }, function (log) {
+                /* 声明值必须在采样结束后读：过渡声明挂在 .is-in 状态上，
+                   推进之前读到的只是基础态、不携带 transition。 */
+                decl(el, pair[0]);
+                var rec = analyze(log[0], 1);
+                rec.sel = pair[0];
+                rec.label = pair[1];
+                if (img) rec.imgClip = analyze(log[1], 2);
+                R.reveal.push(rec);
+                R.diag.push({
+                  sel: pair[0],
+                  sweepIndex: sweepOrder().indexOf(el),   /* -1 = 不在扫描序列内 */
+                  sweepTotal: sweepOrder().length,
+                  snapPark: snapPark,
+                  snapPush: snapPush,
+                  afterSample: elState(el),
+                  isinAfter: isin(),
+                  revealedAfter: revealedInSweep(),
+                  frames: log[0].length,
+                  /* 采样层是否观测到变化：用于把「测量受限」与「实现缺陷」分开 */
+                  opacityChanged: log[0].some(function (r0) {
+                    return Math.abs(r0[1] - log[0][0][1]) > 0.001;
+                  }),
+                  firstFrame: log[0].length ? log[0][0] : null,
+                  lastFrame: log[0].length ? log[0][log[0].length - 1] : null
+                });
+                next();
+                }, 50);
+              }, LEAD_MS);
+              }, 450);
+            }, 300);
+          });
+        });
+
+        /* ── C. 错峰：看同一网格内各卡「首动时刻」的间隔 ──
+           ★ 为什么把 pushPast 注入到采样中途，而不是先推过再等静默窗口
+             若先 pushPast、等 LEAD_MS 再开采，首卡可能在窗口内已走完 ease-out 的
+             一半（560ms 缓动在 70ms 处 opacity 已 ≈0.5），
+             于是 firsts[0] 被量化成 70ms，而真实起点是 0 —— 首个间隔被压成
+             1 帧（16ms）而非设计的 70ms，测量失真。
+             改为：采样从 t=0 起跑，把 pushPast 注入到采样时钟的 PUSH_AT 帧。
+             这样所有 firsts 共用同一时钟原点，间隔是精确差值，与站点管线
+             何时启动（rAF 帧 or 200ms 兜底）无关。 */
+        queue.push(function (next) {
+          var grid = d.querySelector('.grid-3, .stat-row');
+          if (!grid) { R.notes.push('无网格容器，跳过错峰测量'); return next(); }
+          var cards = Array.prototype.slice.call(grid.children);
+          if (cards.length < 2) { R.notes.push('网格子项不足，跳过错峰测量'); return next(); }
+          parkBelow(grid);
+          setTimeout(function () {
+            var CF = 32;                 /* 放宽采样间隔，理由见 sample() */
+            var firsts = new Array(cards.length).fill(null);
+            var iter = 0;
+            var MAX = Math.ceil(2000 / CF);
+            var PUSH_AT = Math.round(160 / CF);
+            (function step() {
+              var t = iter * CF;
+              if (iter === PUSH_AT) { pushPast(grid); nudge(); }
+              for (var i = 0; i < cards.length; i++) {
+                if (firsts[i] !== null) continue;
+                if (parseFloat(w.getComputedStyle(cards[i]).opacity) > 0.01) firsts[i] = t;
+              }
+              iter++;
+              if (iter < MAX && firsts.indexOf(null) >= 0) setTimeout(step, CF);
+              else {
+                var gaps = [];
+                for (var g = 1; g < firsts.length; g++) {
+                  if (firsts[g] !== null && firsts[g - 1] !== null) gaps.push(firsts[g] - firsts[g - 1]);
+                }
+                R.stagger = {
+                  container: grid.className,
+                  count: cards.length,
+                  firstChangeTimes: firsts,
+                  gaps: gaps,
+                  ascending: gaps.every(function (v) { return v > 0; }),
+                  pushAtMs: PUSH_AT * CF,
+                  sampleIntervalMs: CF,
+                  childInSweep: cards.map(function (c) { return sweepOrder().indexOf(c); }),
+                  /* 声明层错峰：各卡的 transition-delay 实测值（权威证据） */
+                  declaredDelays: cards.map(function (c) {
+                    var cs = w.getComputedStyle(c);
+                    return { cls: c.className, delay: cs.transitionDelay };
+                  })
+                };
+                next();
+              }
+            })();
+          }, 300);
+        });
+
+        /* ── D. 数字滚动（同样把 pushPast 注入采样中途，理由见 C） ── */
+        queue.push(function (next) {
+          var nums = Array.prototype.slice.call(d.querySelectorAll('.stat-number'));
+          if (!nums.length) { R.notes.push('无 .stat-number，跳过数字滚动测量'); return next(); }
+          /* 数字滚动由 rAF 逐帧插值驱动（initCounters 的 step 递归 rAF）。
+             rAF 停摆的环境里它必然不动，这是「测不了」而非「坏了」——
+             站点另有 6s finalize 兜底把值精确归位，所以真实浏览器/后台标签页
+             两种情形都不会留下错值。 */
+          if (R.rAFLive === false) {
+            R.notes.push('数字滚动依赖 rAF 逐帧插值，本环境 rAF 停摆 → 该项不可测' +
+                         '（非实现缺陷；站点另有 6s 归位兜底保证末值精确）');
+            return next();
+          }
+          var row = nums[0].closest('.stat-row') || nums[0];
+          var originals = nums.map(function (e) { return e.textContent.trim(); });
+          var CF = 32;                 /* 放宽采样间隔，理由见 sample() */
+          parkBelow(row);
+          setTimeout(function () {
+            var log = nums.map(function () { return []; });
+            var iter = 0;
+            var MAX = Math.ceil(2000 / CF);
+            var PUSH_AT = Math.round(160 / CF);
+            (function step() {
+              var t = iter * CF;
+              if (iter === PUSH_AT) { pushPast(row); nudge(); }
+              for (var i = 0; i < nums.length; i++) log[i].push([t, nums[i].textContent.trim()]);
+              iter++;
+              if (iter < MAX) setTimeout(step, CF);
+              else {
+                R.counters = nums.map(function (el, i) {
+                  var vals = log[i].map(function (r0) { return r0[1]; });
+                  var distinct = [];
+                  for (var k = 0; k < vals.length; k++) {
+                    if (distinct[distinct.length - 1] !== vals[k]) distinct.push(vals[k]);
+                  }
+                  /* 首变时刻：从采样时钟原点算起，用于核对「进入视口后才起跳」 */
+                  var tFirst = null;
+                  for (var m2 = 0; m2 < vals.length; m2++) {
+                    if (vals[m2] !== originals[i]) { tFirst = log[i][m2][0]; break; }
+                  }
+                  return {
+                    original: originals[i],
+                    final: vals[vals.length - 1],
+                    first: vals[0],
+                    mid: distinct.length > 2 ? distinct[Math.floor(distinct.length / 2)] : null,
+                    distinctCount: distinct.length,
+                    tFirstChange: tFirst,
+                    returnsToOriginal: vals[vals.length - 1] === originals[i]
+                  };
+                });
+                R.counterClock = { pushAtMs: PUSH_AT * CF, frames: log[0].length, sampleIntervalMs: CF };
+                next();
+              }
+            })();
+          }, 300);
+        });
+
+        /* ── E. 磁性按钮：合成 mousemove → 采样跟手 → 合成 mouseleave → 采样回落 ── */
+        queue.push(function (next) {
+          var btn = d.querySelector('.btn');
+          if (!btn) { R.notes.push('无 .btn，跳过磁性测量'); return next(); }
+          /* 站点在触摸设备上按设计不绑定磁性效果，此处如实标注「不适用」，
+             不把它记成失败。 */
+          if (R.env.siteIsTouch) {
+            R.notes.push('本环境被判定为触摸设备（hover:none 或 非 pointer:fine）→ ' +
+                         '站点按设计跳过磁性绑定，磁性项不适用');
+            return next();
+          }
+          w.scrollTo(0, Math.max(0, docY(btn, w) - w.innerHeight * 0.4));
+          setTimeout(function () {
+            var rect = btn.getBoundingClientRect();
+            var px = rect.left + rect.width * 0.88;
+            var py = rect.top + rect.height * 0.15;
+            ['mouseover', 'mousemove'].forEach(function (type) {
+              btn.dispatchEvent(new w.MouseEvent(type, {
+                bubbles: true, cancelable: true, clientX: px, clientY: py
+              }));
+            });
+            sample([btn], 500, function (el, win) {
+              return [win.getComputedStyle(el).getPropertyValue('--m-mx').trim() || '0px'];
+            }, function (log) {
+              var during = log.map(function (r0) { return r0[1]; });
+              btn.dispatchEvent(new w.MouseEvent('mouseleave', { bubbles: true }));
+              sample([btn], 900, function (el, win) {
+                return [win.getComputedStyle(el).getPropertyValue('--m-mx').trim() || '0px'];
+              }, function (log2) {
+                var after = log2.map(function (r0) { return r0[1]; });
+                R.magnetic = {
+                  duringFirst: during[0],
+                  duringPeak: during.reduce(function (a, b) {
+                    return Math.abs(parseFloat(b) || 0) > Math.abs(parseFloat(a) || 0) ? b : a;
+                  }, '0px'),
+                  duringLast: during[during.length - 1],
+                  afterLast: after[after.length - 1],
+                  settledToZero: Math.abs(parseFloat(after[after.length - 1]) || 0) < 0.05,
+                  /* 有效性标记：弹簧位移由站点 rAF 循环积分。
+                     rAF 停摆时读到全 0 属于「本环境测不了」，不是实现缺陷。 */
+                  measurable: R.rAFLive === true ? true : false,
+                  invalidReason: R.rAFLive === true ? null
+                    : (R.rAFLive === false ? 'rAF 在本环境停摆，弹簧不积分' : 'rAF 存活未判定')
+                };
+                next();
+              });
+            });
+          }, 300);
+        });
+
+        /* ── F. 页面切换能力探测 ── */
+        queue.push(function (next) {
+          var vt = false;
+          try { vt = !!(w.CSS && w.CSS.supports && w.CSS.supports('view-transition-name: none')); } catch (e) {}
+          var vtRule = false;
+          try {
+            for (var i = 0; i < d.styleSheets.length; i++) {
+              var ss = d.styleSheets[i];
+              var rules;
+              try { rules = ss.cssRules; } catch (e2) { continue; }
+              if (!rules) continue;
+              for (var j = 0; j < rules.length; j++) {
+                if (rules[j].cssText && rules[j].cssText.indexOf('@view-transition') === 0) vtRule = true;
+              }
+            }
+          } catch (e3) {}
+          R.transition = {
+            crossDocumentViewTransitionSupported: vt,
+            viewTransitionAtRulePresent: vtRule,
+            path: vt ? '@view-transition（原生跨文档，无 JS 介入）' : 'JS 降级（body.is-leaving 淡出后跳转）'
+          };
+          /* 诊断用：采样结束时已揭示的元素总数，用于区分「管线没跑」和「元素定位不对」 */
+          R.isinCount = d.querySelectorAll('.is-in').length;
+          R.scrollY = Math.round(w.pageYOffset);
+          /* 本环境是否真的投递了 scroll 事件（0 = 未投递，探针已代投合成事件） */
+          R.scrollEvents = scrollEventCount;
+          /* 站点自身的任务级异常计数（js/motion.js 的 noteErr 累加）。
+             >0 说明滚动管线里某个任务抛过错 —— 因为做了隔离，揭示不受影响，
+             但必须能被看见，不能静默吞掉。 */
+          R.motionErrors = ('__motionErrors' in w) ? w.__motionErrors : 0;
+          /* ★ 最危险的隐藏起始态：img.m-clip 被裁到 inset(0 50% 0 50%)。
+             JS 加上 .m-clip 却没配上 .is-in 的话，图片会永久只露一半 ——
+             这是本层唯一「静默半消失」的失败模式，必须单独计数。 */
+          R.clipArmed = d.querySelectorAll('img.m-clip').length;
+          R.clipRevealed = d.querySelectorAll('img.m-clip.is-in').length;
+          next();
+        });
+
+        /* ── 串行执行 ── */
+        (function runQueue(i) {
+          if (i >= queue.length) {
+            out.textContent = JSON.stringify(R);
+            document.title = 'PROBE DONE';
+            return;
+          }
+          try {
+            queue[i](function () { runQueue(i + 1); });
+          } catch (err) {
+            out.textContent = 'STEP ' + i + ' ERROR: ' + err.message;
+          }
+        })(0);
+      }
+
+      /* 静态回退态（prefers-reduced-motion）：
+         核心断言是「首帧即完全可见」，这正是无 JS / 打印导出两条路径的共同等价物。 */
+      function probeStatic(d, w) {
+        var sels = ['.heading-2', '.project-card', '.figure', '.label', '.stat-item',
+                    '.body-large', '.quote-block', '.failed-concept', '.timeline-list > li'];
+        var list = [];
+        sels.forEach(function (s) {
+          var n = d.querySelectorAll(s);
+          if (n.length) {
+            list.push({
+              sel: s, count: n.length,
+              minOpacity: Math.min.apply(null, Array.prototype.slice.call(n).map(function (e) {
+                return num(w.getComputedStyle(e).opacity);
+              }))
+            });
+          }
+        });
+        var mclip = d.querySelector('img.m-clip');
+        var coverSpans = d.querySelectorAll('.cover-word > span');
+        out.textContent = JSON.stringify({
+          page: page,
+          reduced: true,
+          dataMotion: d.documentElement.getAttribute('data-motion'),
+          isinCount: d.querySelectorAll('.is-in').length,
+          coverLetters: {
+            count: coverSpans.length,
+            firstOpacity: coverSpans.length ? num(w.getComputedStyle(coverSpans[0]).opacity) : null
+          },
+          images: {
+            totalFigureImgs: d.querySelectorAll('.figure img').length,
+            withClipClass: d.querySelectorAll('img.m-clip').length,
+            sampleClipPath: mclip ? w.getComputedStyle(mclip).clipPath : null
+          },
+          targets: list,
+          scrollProgressBarCount: d.querySelectorAll('.m-scroll-progress').length,
+          tickerClones: d.querySelectorAll('.m-ticker > span').length
+        });
+        document.title = 'PROBE DONE';
+      }
+    })();
+  </script>
+</body>
+</html>

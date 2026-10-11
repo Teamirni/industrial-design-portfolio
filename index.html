@@ -1,6 +1,19 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-motion="off">
 <head>
+  <script>
+  /* 动效总开关。默认 off：JS 未执行时页面保持纯静态。
+     仅在允许动效时置 on；2.5s 兜底 —— 若 js/motion.js 未就绪，立即退回静态，
+     避免「内容被初始隐藏态锁死」这种不可恢复的失败。 */
+  (function () {
+    var ok = true;
+    try { ok = !window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+    if (ok) document.documentElement.setAttribute('data-motion', 'on');
+    setTimeout(function () {
+      if (!window.__motionReady) document.documentElement.setAttribute('data-motion', 'off');
+    }, 2500);
+  })();
+  </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>翁彥斌 · 工业设计作品集</title>
@@ -9,6 +22,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@400;500;600;700;800&family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
+  <!-- 动效与交互层：与视觉系统解耦，删除这一行即可完全回退到静态版 -->
+  <link rel="stylesheet" href="css/motion.css">
 </head>
 <body>
 
@@ -36,20 +51,70 @@
     <a href="methodology.html">设计方法论</a>
   </div>
 
-  <!-- Hero -->
-  <header class="hero">
-    <div class="hero-bg">
-      <img src="assets/images/dslr-final.jpg" alt="作品集封面主视觉：单反相机真实渲染">
+  <!-- 封面 -->
+  <header class="cover">
+    <div class="cover-art">
+      <!-- COVER-SVG:START -->
+      <!-- 幽灵白模构图板 · 双布局。
+           wide = 桌面 / 平板横向 / A4 打印；tall = 手机竖屏。
+           单一构图在宽扁容器里必然左右留白、在竖长容器里必然上下留白，
+           这是「元素偏小、留白过多」的结构性成因，故按断点各出一套画布，
+           两套画布比例按实测容器比例设计，各自把画幅吃满。
+           两者都在 preserveAspectRatio="xMidYMid meet" 下等比缩放：
+           既不裁切也不变形。打印强制用 wide。
+           本区块由 _gen_cover_svg.py 自动注入，请勿手工编辑。 -->
+        <svg class="cover-svg cover-svg--wide" viewBox="0 0 1620 633" preserveAspectRatio="xMidYMid meet"
+             role="img" aria-label="桌面与打印版封面：智能猫窝、头戴式监听耳机、模块化单反相机与越野车玩具的白模散落构图">
+          <defs>
+            <filter id="ghostBlurW" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+              <feGaussianBlur stdDeviation="9"/>
+            </filter>
+          </defs>
+          <g filter="url(#ghostBlurW)" opacity="0.92">
+            <image href="assets/images/cover/ghost-headphones-01.png" width="403" height="507"
+                   transform="translate(-31 16) rotate(16 201.5 253.5)"/>
+            <image href="assets/images/cover/ghost-catnest-01.png" width="668" height="393"
+                   transform="translate(341 290) rotate(-10 334.0 196.5)"/>
+            <image href="assets/images/cover/ghost-truck-01.png" width="539" height="294"
+                   transform="translate(830 18) rotate(8 269.5 147.0)"/>
+            <image href="assets/images/cover/ghost-dslr-01.png" width="562" height="431"
+                   transform="translate(1153 260) rotate(-14 281.0 215.5)"/>
+          </g>
+        </svg>
+        <svg class="cover-svg cover-svg--tall" viewBox="0 0 915 1480" preserveAspectRatio="xMidYMid meet"
+             role="img" aria-label="移动端封面：智能猫窝、头戴式监听耳机、模块化单反相机与越野车玩具的白模纵向散落构图">
+          <defs>
+            <filter id="ghostBlurT" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+              <feGaussianBlur stdDeviation="9"/>
+            </filter>
+          </defs>
+          <g filter="url(#ghostBlurT)" opacity="0.92">
+            <image href="assets/images/cover/ghost-catnest-01.png" width="691" height="407"
+                   transform="translate(-59 98) rotate(-10 345.5 203.5)"/>
+            <image href="assets/images/cover/ghost-headphones-01.png" width="354" height="446"
+                   transform="translate(588 476) rotate(15 177.0 223.0)"/>
+            <image href="assets/images/cover/ghost-dslr-01.png" width="586" height="450"
+                   transform="translate(-6 687) rotate(-13 293.0 225.0)"/>
+            <image href="assets/images/cover/ghost-truck-01.png" width="637" height="347"
+                   transform="translate(150 1127) rotate(8 318.5 173.5)"/>
+          </g>
+        </svg>
+      <!-- COVER-SVG:END -->
     </div>
-    <div class="hero-overlay"></div>
-    <div class="container hero-content">
-      <p class="hero-subtitle">3D Designer Portfolio · 产品设计 → 生产</p>
-      <h1 class="hero-title">翁彥斌<br><span style="font-weight:400; opacity:.85;">3D 设计与产品开发作品集</span></h1>
-      <p class="hero-desc">聚焦 3D 外观设计与产品拆件落地——用 Rhino NURBS 曲面建模把概念推进到可开模、可装配的形态。本集呈现从外观、拆件、结构到渲染验证的完整能力，面向初级 3D 设计师 / 产品开发岗位。</p>
-      <div class="hero-meta">
-        <span>产品设计 · 本科应届</span>
-        <span>求职方向：初级 3D 设计师</span>
-        <span>厦门工学院</span>
+
+    <div class="cover-type container">
+      <p class="cover-eyebrow">
+        WENG YANBIN<br>
+        2026 INTERVIEW PORTFOLIO
+      </p>
+      <!-- 逐字遮罩揭示（对应 POCH 的文字进场）：字母由 span 承载，--i 提供错峰延迟。
+           隐藏起点写在 css/motion.css 的 @keyframes from 里，纯 CSS 生效、不依赖 JS，
+           因此不存在「JS 没跑到 → 封面标题永久不可见」的风险。
+           字母之间不留任何空白，保证与原 letter-spacing 排版完全一致。 -->
+      <h1 class="cover-word" aria-label="Portfolio"><span aria-hidden="true" style="--i:0">P</span><span aria-hidden="true" style="--i:1">o</span><span aria-hidden="true" style="--i:2">r</span><span aria-hidden="true" style="--i:3">t</span><span aria-hidden="true" style="--i:4">f</span><span aria-hidden="true" style="--i:5">o</span><span aria-hidden="true" style="--i:6">l</span><span aria-hidden="true" style="--i:7">i</span><span aria-hidden="true" style="--i:8">o</span></h1>
+      <div class="cover-foot">
+        <span class="cover-foot-cn">翁彥斌 · 工业设计作品集</span>
+        <span>三维外观建模 · 拆件与出模 · CMF 渲染 · AI 辅助设计</span>
       </div>
     </div>
   </header>
@@ -170,6 +235,15 @@
     </div>
   </section>
 
+  <!-- 滚动字带（对应 POCH 的 scroll text lines）：
+       两行文字方向相反，位移量直接由滚动位置驱动（scroll-linked，非触发式）。
+       深底与页脚连成一块，给长页收尾一个节奏落点。
+       此处只写一份基准文案，铺满与「实心 / 描边交替」由 js/motion.js 复制生成。 -->
+  <section class="ticker-band" aria-hidden="true">
+    <div class="m-ticker"><span>3D 外观建模 · 拆件与出模 · CMF 渲染 · 结构验证 · AI 辅助设计 · </span></div>
+    <div class="m-ticker"><span>Rhino NURBS · Keyshot · 可开模分件 · 公差意识 · 量产可行性 · </span></div>
+  </section>
+
   <!-- 页脚 -->
   <footer class="footer">
     <div class="container footer-inner">
@@ -183,5 +257,7 @@
   </footer>
 
   <script src="js/main.js"></script>
+  <!-- 动效引擎：零依赖，需置于 main.js 之后（不接管导航与灯箱的状态机） -->
+  <script src="js/motion.js"></script>
 </body>
 </html>

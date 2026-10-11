@@ -1,31 +1,36 @@
 /*
   翁彥斌 · 工业设计作品集 v2
-  设计风格：Editorial Material（编辑材质风）
-  核心特征：暖白底、大地色强调、大留白、大图叙事、材质真实感
+  设计风格：Monochrome Editorial（极简黑白编辑风）
+  核心特征：纯白底、近黑文字、无彩色强调、大留白、大图叙事、材质真实感
 */
 
 /* ───────── 设计令牌 ───────── */
 :root {
-  /* 背景层 */
-  --bg-primary: #f7f5f2;
-  --bg-secondary: #ffffff;
-  --bg-dark: #1a1a1b;
-  --bg-warm: #ede9e4;
+  /* 背景层 —— 极简黑白 */
+  --bg-primary: #ffffff;
+  --bg-secondary: #fafafa;
+  --bg-dark: #0a0a0a;
+  --bg-warm: #f2f2f2;          /* 名称保留以兼容既有引用，值已中性化 */
 
   /* 文本 */
-  --ink: #1a1a1b;
-  --ink-muted: #6b6b6e;
-  --ink-subtle: #9b9b9d;
-  --ink-light: #f7f5f2;
+  --ink: #0a0a0a;
+  --ink-muted: #6e6e70;
+  --ink-subtle: #a3a3a5;
+  --ink-light: #ffffff;
 
-  /* 强调色 */
-  --accent: #b87333;
-  --accent-hover: #d0853e;
-  --accent-soft: #f0e2d3;
+  /* 强调色 —— 去掉大地色，改用纯黑承担强调 */
+  --accent: #0a0a0a;
+  --accent-hover: #3f3f41;
+  --accent-soft: #ededed;
+  --link-hover: #7a7a7c;       /* 链接 hover 文字色：黑白体系里用中灰区分 */
 
   /* 线条 */
-  --hairline: #e0dcd6;
-  --hairline-dark: #3a3a3c;
+  --hairline: #e4e4e4;
+  --hairline-dark: #2c2c2e;
+
+  /* 封面构图板 */
+  --cover-ink: #0a0a0a;
+  --cover-bg: #ffffff;
 
   /* 字体 */
   --font-display: 'Inter Tight', 'Inter', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
@@ -61,9 +66,9 @@
   --radius-lg: 16px;
   --radius-xl: 28px;
 
-  /* 阴影 */
-  --shadow-soft: 0 4px 24px rgba(26, 26, 27, 0.06);
-  --shadow-medium: 0 12px 48px rgba(26, 26, 27, 0.12);
+  /* 阴影 —— 黑白体系下压到最轻 */
+  --shadow-soft: 0 2px 16px rgba(10, 10, 10, 0.05);
+  --shadow-medium: 0 10px 40px rgba(10, 10, 10, 0.10);
 
   /* 过渡 */
   --transition-fast: 0.15s ease;
@@ -108,13 +113,13 @@ a {
 }
 
 a:hover {
-  color: var(--accent);
+  color: var(--link-hover);
 }
 
 /* 选中文本色 */
 ::selection {
-  background-color: var(--accent-soft);
-  color: var(--ink);
+  background-color: var(--accent);
+  color: var(--ink-light);
 }
 
 /* ───────── 容器 ───────── */
@@ -149,13 +154,30 @@ a:hover {
   width: 100%;
   z-index: 1000;
   padding: calc(20px + env(safe-area-inset-top)) 0 20px;
-  transition: background var(--transition-base), box-shadow var(--transition-base), padding var(--transition-base);
+  transition: background var(--transition-base), box-shadow var(--transition-base),
+              padding var(--transition-base), transform var(--transition-base),
+              opacity var(--transition-base);
   mix-blend-mode: difference;
 }
 
+/* 封面期间隐藏导航（参考图即为无顶栏的全幅构图）。
+   导航固定压在最上层，会盖住构图板上缘的模型，形成「框架感」；
+   因此进入封面即收起，滚动越过封面后自顶部滑入并转为实底。 */
+body.cover-mode .nav {
+  transform: translateY(-100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+body.cover-mode.nav-revealed .nav {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .nav.scrolled {
-  background-color: rgba(247, 245, 242, 0.96);
-  box-shadow: var(--shadow-soft);
+  background-color: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 1px 0 var(--hairline);
   padding: calc(14px + env(safe-area-inset-top)) 0 14px;
   mix-blend-mode: normal;
 }
@@ -473,81 +495,116 @@ a:hover {
   align-items: center;
 }
 
-/* ───────── 首页 Hero ───────── */
-.hero {
+/* ───────── 封面（极简黑白 · 幽灵白模构图板）─────────
+   设计要点：不再用「照片铺满视口」的思路——1:1 素材在竖屏手机下会被
+   object-fit:cover 放大数倍裁切，导致比例失调。改为比例锁定的 SVG 构图板。
+
+   双布局：单一构图在宽扁容器里必然左右留白、在竖长容器里必然上下留白，
+   实测桌面左右各空 271px、手机上下各空 167px —— 这就是「元素偏小、留白过多」
+   的结构性成因。故 `--wide` 给桌面/打印、`--tall` 给手机，各自把画幅吃满。
+   两者都在 preserveAspectRatio="xMidYMid meet" 下等比缩放：不裁切、不变形。
+
+   顶栏避让：封面不再为导航预留顶部内边距，构图板直接顶到画面上缘，
+   模型可以压出上边界形成出血；导航在封面期间收起，滚过封面后滑入。 */
+.cover {
   position: relative;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
-  padding-bottom: var(--space-9);
+  background-color: var(--cover-bg);
+  color: var(--cover-ink);
+  padding: 0 0 var(--space-6);
   overflow: hidden;
-  background-color: var(--bg-dark);
-  color: var(--ink-light);
 }
 
-.hero-bg {
+/* 构图板：占据封面主体，绝不裁切、绝不变形。
+   flex-basis 归零 + min-height:0 + overflow:hidden 三件套，
+   确保构图板只吃「剩余空间」，不会被 SVG 的固有尺寸撑破封面高度。
+   左右不再留内边距，构图板铺满整幅宽度。 */
+.cover-art {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+/* 底缘渐隐：物体压出画布下边时，会正好切在排版块上缘形成硬切。
+   用一层白渐变化解为「溶入背景」，读起来是有意的排版，而不是被裁掉。
+   上缘刻意不加渐隐 —— 模型要顶到画面上缘才是全幅出血。 */
+.cover-art::after {
+  content: '';
   position: absolute;
-  inset: 0;
-  z-index: 0;
-}
-
-.hero-bg img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0.55;
-}
-
-.hero-overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(26,26,27,0.1) 0%, rgba(26,26,27,0.85) 100%);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 24%;
+  background: linear-gradient(180deg,
+              rgba(255, 255, 255, 0) 0%,
+              rgba(255, 255, 255, 0.72) 58%,
+              var(--cover-bg) 100%);
+  pointer-events: none;
   z-index: 1;
 }
 
-.hero-content {
+.cover-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+}
+
+/* 双布局切换：默认宽幅（桌面 / 打印），窄屏换竖幅 */
+.cover-svg--tall { display: none; }
+
+/* 排版块：左对齐，压在构图板下缘 */
+.cover-type {
   position: relative;
   z-index: 2;
+  flex: 0 0 auto;
+  padding-top: var(--space-4);
 }
 
-.hero-subtitle {
-  font-size: var(--text-sm);
-  letter-spacing: 3px;
+.cover-eyebrow {
+  font-family: var(--font-display);
+  font-size: clamp(10px, 0.86vw, 13px);
+  font-weight: 700;
+  line-height: 1.55;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  opacity: 0.75;
-  margin-bottom: var(--space-4);
+  color: var(--ink);
 }
 
-.hero-title {
-  font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  font-size: clamp(40px, 7vw, var(--text-5xl));
-  font-weight: 900;
-  line-height: 1.05;
-  letter-spacing: -2px;
-  margin-bottom: var(--space-5);
+.cover-word {
+  font-family: var(--font-display);
+  font-size: clamp(54px, 13.2vw, 186px);
+  font-weight: 800;
+  line-height: 0.84;
+  letter-spacing: -0.045em;
+  margin: 0.16em 0 0;
+  color: var(--ink);
 }
 
-.hero-desc {
-  max-width: 560px;
-  font-size: var(--text-lg);
-  line-height: 1.7;
-  opacity: 0.85;
-  margin-bottom: var(--space-7);
-}
-
-.hero-meta {
+.cover-foot {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-6);
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-6);
+  margin-top: var(--space-5);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--hairline);
   font-size: var(--text-sm);
-  opacity: 0.7;
+  color: var(--ink-muted);
 }
 
-.hero-meta span {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+.cover-foot-cn {
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--ink);
 }
 
 /* ───────── 项目卡片 ───────── */
@@ -1127,6 +1184,24 @@ a:hover {
     padding-bottom: var(--space-8);
   }
   .model-viewer { height: 360px; }
+
+  /* 封面：手机端换竖幅构图（容器 ≈0.46:1，与竖幅画布同比例），排版块独占下方 */
+  .cover {
+    padding: 0 0 var(--space-5);
+  }
+  .cover-art {
+    flex: 1 1 0;
+    min-height: 0;
+    padding: 0;
+  }
+  .cover-svg {
+    max-height: 100%;
+  }
+  .cover-svg--wide { display: none; }
+  .cover-svg--tall { display: block; }
+  .cover-foot {
+    margin-top: var(--space-4);
+  }
 }
 
 @media (max-width: 480px) {
@@ -1135,7 +1210,12 @@ a:hover {
     padding-right: 20px;
   }
   .model-viewer { height: 300px; }
-  .hero-title { letter-spacing: -1px; }
+  .cover-word { letter-spacing: -0.03em; }
+  .cover-art { min-height: 0; }
+  .cover-foot {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
 }
 
 /* ───────── 打印 / PDF 导出优化 ─────────
@@ -1194,12 +1274,30 @@ a:hover {
     padding-right: 28px;
   }
 
-  /* 封面作为整页封面块，铺满整张 A4 */
-  .hero {
+  /* 封面作为整页封面块，铺满整张 A4；构图板按比例缩放，不裁切不变形 */
+  .cover {
     min-height: 100vh;
     break-inside: avoid;
     page-break-inside: avoid;
-    padding: var(--space-9) 0;
+    padding: var(--space-8) 0 var(--space-7);
+  }
+
+  .cover-art {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 0 8mm;
+  }
+
+  .cover-svg {
+    max-height: 128mm;
+  }
+
+  /* 打印固定用宽幅构图：窄视口下若把竖幅带进 PDF，整页封面会变味 */
+  .cover-svg--wide { display: block !important; }
+  .cover-svg--tall { display: none !important; }
+
+  .cover-word {
+    font-size: 150px;
   }
 
   /* 项目封面 tighter */

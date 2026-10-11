@@ -1,6 +1,19 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-motion="off">
 <head>
+  <script>
+  /* 动效总开关。默认 off：JS 未执行时页面保持纯静态。
+     仅在允许动效时置 on；2.5s 兜底 —— 若 js/motion.js 未就绪，立即退回静态，
+     避免「内容被初始隐藏态锁死」这种不可恢复的失败。 */
+  (function () {
+    var ok = true;
+    try { ok = !window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+    if (ok) document.documentElement.setAttribute('data-motion', 'on');
+    setTimeout(function () {
+      if (!window.__motionReady) document.documentElement.setAttribute('data-motion', 'off');
+    }, 2500);
+  })();
+  </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>04 · 面向独居青年的智能猫窝 · 翁彥斌</title>
@@ -9,6 +22,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@400;500;600;700;800&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../css/style.css">
+  <!-- 动效与交互层：与视觉系统解耦，删除这一行即可完全回退到静态版 -->
+  <link rel="stylesheet" href="../css/motion.css">
 </head>
 <body>
 
@@ -237,5 +252,7 @@
   </footer>
 
   <script src="../js/main.js"></script>
+  <!-- 动效引擎：零依赖，需置于 main.js 之后（不接管导航与灯箱的状态机） -->
+  <script src="../js/motion.js"></script>
 </body>
 </html>
