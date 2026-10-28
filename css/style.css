@@ -936,6 +936,83 @@ body.cover-mode.nav-revealed .nav {
   display: block;
 }
 
+/* About hero · 能力矩阵（外观 / 结构 / 量产 三线，PDF 导出同样生效） */
+.capability-matrix {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6);
+  margin-top: var(--space-7);
+}
+
+@media (min-width: 900px) {
+  .capability-matrix {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-7);
+  }
+}
+
+.cap-item {
+  border-top: 2px solid var(--accent);
+  padding-top: var(--space-4);
+}
+
+.cap-index {
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ink-subtle);
+  margin-bottom: var(--space-3);
+}
+
+.cap-title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-bottom: var(--space-3);
+}
+
+.cap-desc {
+  font-size: var(--text-sm);
+  line-height: 1.75;
+  color: var(--ink-muted);
+}
+
+/* About hero · 可交付物条 */
+.deliverable-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--hairline);
+}
+
+.ds-label {
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ink-subtle);
+  margin-right: var(--space-2);
+}
+
+.ds-chip {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  padding: 6px 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  color: var(--ink);
+  background: var(--bg-primary);
+  white-space: nowrap;
+}
+
 .about-portrait {
   aspect-ratio: 3 / 4;
   border-radius: var(--radius-lg);
@@ -1412,4 +1489,84 @@ body.cover-mode.nav-revealed .nav {
     color: inherit;
     text-decoration: none;
   }
+}
+
+/* ═══ PDF 导出专用模式（body.pdf-export，由 build_pdf_v3.py 注入）═══
+   截图渲染不触发 @media print，故用独立 class 显式降级网页专属元素，
+   让「全页截图 → 切片」产物与屏幕观感一致。 */
+body.pdf-export .nav,
+body.pdf-export .mobile-menu,
+body.pdf-export .nav-toggle,
+body.pdf-export .nav-links,
+body.pdf-export .footer,
+body.pdf-export .ticker-band,
+body.pdf-export .viewer-hint,
+body.pdf-export .viewer-loading,
+body.pdf-export .container.flex-between {   /* 底部「返回 / 下一个」导航条，导出无意义 */
+  display: none !important;
+}
+
+/* 封面 / 关于页 hero 在 headless 下 100vh 会随窗口高爆炸，
+   固定为「一张横向 A4 页」对应的 CSS 高度（渲染宽 / √2），让封面恰好占满一页 */
+body.pdf-export .cover {
+  min-height: 905px !important;
+  padding: 48px 0 40px !important;
+}
+body.pdf-export .about-hero {
+  min-height: 905px !important;
+  padding-top: 56px !important;
+  padding-bottom: 40px !important;
+}
+
+/* 封面强制宽幅构图（wide 双版已内置，继承即可） */
+body.pdf-export .cover-svg--tall { display: none !important; }
+body.pdf-export .cover-svg--wide { display: block !important; }
+
+/* 越野车"可交互 3D 模型"板块：PDF 无法交互，整个 section 删除（含标题与说明段） */
+body.pdf-export #viewer-section { display: none !important; }
+
+/* 中和动效隐藏起点（截图不吃 @media print，必须显式归位，否则下方内容 opaque:0 被截成空白） */
+body.pdf-export :is(
+  .project-card, .figure, .quote-block, .failed-concept, .skill-bar,
+  .timeline-list > li, .stat-item, .meta-item,
+  .label, .heading-1, .heading-2, .heading-3, .heading-4,
+  .stage-title, .body, .body-large, .stage-body,
+  .cover-word > span, .cover-eyebrow, .cover-foot
+) {
+  opacity: 1 !important;
+  transform: none !important;
+  clip-path: none !important;
+  animation: none !important;
+  transition: none !important;
+}
+body.pdf-export img.m-clip {
+  clip-path: none !important;
+  transform: none !important;
+  transition: none !important;
+}
+body.pdf-export .m-scroll-progress,
+body.pdf-export .project-card-shade,
+body.pdf-export .card-cta,
+body.pdf-export .m-scrub-line { display: none !important; }
+body.pdf-export .figure.is-loading img,
+body.pdf-export .project-card-image.is-loading img {
+  background-image: none !important;
+  animation: none !important;
+}
+
+/* 收紧过胖的 section 间距（网页 128px 留白在分页 PDF 里会造出空页），保持疏朗但不浪费版面 */
+body.pdf-export .section,
+body.pdf-export .section-sm,
+body.pdf-export .stage { padding: 72px 0 !important; }
+
+/* 分页保护：单张图片高度不超过一页（≈905px），超高竖图自动等比缩小居中，
+   避免大图被跨页裁成两半。留出图注与内边距余量，保证整个 .figure 块能装进一页。
+   image-row 内的图片也在 .figure 里，一并覆盖 */
+body.pdf-export .figure img,
+body.pdf-export .project-hero img {
+  max-height: 740px !important;
+  width: auto !important;
+  max-width: 100% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
 }

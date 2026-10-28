@@ -33,3 +33,5 @@ pdf/*.pdf
 /_*.js
 /_ab_tall_*.json
 /_backup_layout_*.json
+# ── 调试切片产物（_debug_slices.py 的输出图）──
+_debug_slices/
