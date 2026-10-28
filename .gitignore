@@ -35,3 +35,7 @@ pdf/*.pdf
 /_backup_layout_*.json
 # ── 调试切片产物（_debug_slices.py 的输出图）──
 _debug_slices/
+# ── 内部定向脚本（含 JD / ZURU 表述，不入公开仓库）──
+_package_submission.py
+_verify_jd.py
+_measure.html
